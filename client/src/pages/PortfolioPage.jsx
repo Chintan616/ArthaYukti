@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchPortfolioSummary, fetchPortfolioHistory } from '../store/slices/portfolioSlice';
+import { Briefcase } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { fetchPortfolioSummary, fetchPortfolioChart } from '../store/slices/portfolioSlice';
 import PriceChange from '../components/stock/PriceChange';
 import EmptyState from '../components/ui/EmptyState';
 import Skeleton from '../components/ui/Skeleton';
@@ -42,11 +42,19 @@ const CustomTooltip = ({ active, payload }) => {
 export default function PortfolioPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { summary, holdings, history, loading } = useSelector((s) => s.portfolio);
+  const { summary, holdings, loading, chartData, chartLoading } = useSelector((s) => s.portfolio);
 
   useEffect(() => {
+    // Initial fetch
     dispatch(fetchPortfolioSummary());
-    dispatch(fetchPortfolioHistory());
+    dispatch(fetchPortfolioChart());
+
+    // Auto-refresh summary every 30 seconds for real-time updates
+    const intervalId = setInterval(() => {
+      dispatch(fetchPortfolioSummary());
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, [dispatch]);
 
   const totalHoldingsValue = summary?.totalValue ?? 0;
@@ -68,15 +76,15 @@ export default function PortfolioPage() {
 
       {/* Summary cards */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="rounded-lg border p-5 space-y-2" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
               <Skeleton className="h-3 w-20" /><Skeleton className="h-7 w-28" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatCard label="Total Value"   value={`₹${fmt(summary?.totalValue)}`} />
           <StatCard label="Invested"      value={`₹${fmt(summary?.totalCost)}`} />
           <StatCard
@@ -85,9 +93,77 @@ export default function PortfolioPage() {
             sub={`${(summary?.totalPLPercent ?? 0) >= 0 ? '+' : ''}${summary?.totalPLPercent?.toFixed(2)}%`}
             isGreen={(summary?.totalPL ?? 0) >= 0}
           />
+          <StatCard
+            label="Today's P&L"
+            value={`₹${fmt(Math.abs(summary?.todayPL ?? 0))}`}
+            sub={(summary?.todayPL ?? 0) >= 0 ? 'Profit' : 'Loss'}
+            isGreen={(summary?.todayPL ?? 0) >= 0}
+          />
           <StatCard label="Paper Cash"    value={`₹${fmt(summary?.virtualBalance)}`} sub="Available to trade" />
         </div>
       )}
+
+      {/* Portfolio Historical Chart */}
+      <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+        <h2 className="font-sans font-medium text-sm mb-4" style={{ color: 'var(--foreground)' }}>Portfolio Value (30D)</h2>
+        {chartLoading ? (
+          <div className="h-64 flex items-center justify-center">
+            <Skeleton className="h-full w-full rounded-md" />
+          </div>
+        ) : chartData && chartData.length > 0 ? (
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={(val) => {
+                    const d = new Date(val);
+                    return `${d.getDate()} ${d.toLocaleString('default', { month: 'short' })}`;
+                  }}
+                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  minTickGap={30}
+                />
+                <YAxis 
+                  domain={['auto', 'auto']}
+                  tickFormatter={(val) => `₹${(val/1000).toFixed(1)}k`}
+                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={60}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'var(--surface-elevated)', borderColor: 'var(--border)', borderRadius: '0.5rem' }}
+                  itemStyle={{ color: 'var(--foreground)' }}
+                  labelStyle={{ color: 'var(--muted-foreground)', marginBottom: '4px' }}
+                  formatter={(value) => [`₹${value.toFixed(2)}`, 'Value']}
+                  labelFormatter={(label) => new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="var(--primary)" 
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorValue)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>No historical data available</p>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -178,41 +254,6 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Transaction history */}
-      {history.length > 0 && (
-        <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-            <h2 className="font-sans font-medium text-sm" style={{ color: 'var(--foreground)' }}>Transaction History</h2>
-          </div>
-          {history.slice(0, 10).map((tx) => (
-            <div key={tx._id} className="flex items-center justify-between px-5 py-3.5 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-3">
-                <span
-                  className="h-6 px-2 rounded text-xs font-mono font-medium flex items-center"
-                  style={{
-                    backgroundColor: tx.type === 'BUY' ? 'oklch(0.78 0.16 152 / 0.1)' : 'oklch(0.66 0.22 22 / 0.1)',
-                    color:           tx.type === 'BUY' ? 'var(--primary)' : 'var(--destructive)',
-                  }}
-                >
-                  {tx.type}
-                </span>
-                <div>
-                  <p className="font-mono text-sm" style={{ color: 'var(--foreground)' }}>{tx.symbol}</p>
-                  <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                    {tx.quantity} shares @ ₹{tx.price?.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--foreground)' }}>₹{tx.total?.toFixed(2)}</p>
-                <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                  {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

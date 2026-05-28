@@ -5,6 +5,7 @@ const morgan  = require('morgan');
 const helmet  = require('helmet');
 const dotenv  = require('dotenv');
 
+const mongoose = require('mongoose');
 const connectDB        = require('./config/db');
 const { initSocket }   = require('./sockets');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -14,10 +15,20 @@ const stockRoutes     = require('./routes/stockRoutes');
 const watchlistRoutes = require('./routes/watchlistRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const alertRoutes     = require('./routes/alertRoutes');
+const walletRoutes    = require('./routes/walletRoutes');
 
 
 dotenv.config();
 connectDB();
+
+mongoose.connection.once('open', async () => {
+  try {
+    await mongoose.connection.db.collection('watchlists').dropIndex('user_1');
+    console.log('[db] Dropped legacy user_1 index on watchlists');
+  } catch (e) {
+    // Ignore if index doesn't exist
+  }
+});
 
 const app    = express();
 const server = http.createServer(app); // wrap in http.Server for Socket.IO
@@ -55,6 +66,7 @@ app.use('/api/watchlist', watchlistRoutes);
 
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/alerts',    alertRoutes);
+app.use('/api/wallet',    walletRoutes);
 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) =>
@@ -68,10 +80,20 @@ app.use('*', (_req, res) =>
 
 // ─── Centralized error handler ───────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
+  console.error("=== ERROR HANDLER ===");
+  console.error(err.stack || err);
+  
+  const statusCode = err.statusCode || err.status || 500;
+  let message = err.message || 'Internal server error';
+
+  // Handle Razorpay specific error format
+  if (err.error && err.error.description) {
+    message = err.error.description;
+  }
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal server error',
+    message: message,
   });
 });
 

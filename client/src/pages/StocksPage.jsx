@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchAllStocks, fetchStockDetail, fetchStockHistory } from '../store/slices/stockSlice';
-import { addToWatchlist, removeFromWatchlist, fetchWatchlist } from '../store/slices/watchlistSlice';
+import { addToWatchlist, removeFromWatchlist, fetchWatchlists } from '../store/slices/watchlistSlice';
+import { tradeStock, fetchPortfolio } from '../store/slices/portfolioSlice';
 import { createAlert } from '../store/slices/alertSlice';
 import StockChart from '../components/stock/StockChart';
 import PriceChange from '../components/stock/PriceChange';
@@ -16,19 +17,28 @@ export default function StocksPage() {
   const navigate = useNavigate();
 
   const { allStocks, loadingMap, currentStock, history, quotes } = useSelector((s) => s.stocks);
-  const { symbols: watchlistSymbols } = useSelector((s) => s.watchlist);
+  const { lists } = useSelector((s) => s.watchlist);
   const [resolution, setResolution] = useState('D');
   const [activeTab, setActiveTab] = useState('chart'); // 'chart' | 'overview'
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [watchlistModalOpen, setWatchlistModalOpen] = useState(false);
+  const [selectedWatchlists, setSelectedWatchlists] = useState({});
+
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [alertCondition, setAlertCondition] = useState('ABOVE');
   const [alertTargetPrice, setAlertTargetPrice] = useState('');
+  
+  const [tradeQuantity, setTradeQuantity] = useState(1);
+  const [isTrading, setIsTrading] = useState(false);
+  const [tradeModalOpen, setTradeModalOpen] = useState(false);
+  const [tradeType, setTradeType] = useState('BUY');
 
   // Fetch all stocks on mount if not available
   useEffect(() => {
     if (allStocks.length === 0) dispatch(fetchAllStocks());
-    dispatch(fetchWatchlist());
+    dispatch(fetchWatchlists());
+    dispatch(fetchPortfolio());
   }, [dispatch, allStocks.length]);
 
   const activeSymbol = routeSymbol?.toUpperCase() || allStocks[0]?.symbol || 'RELIANCE.BO';
@@ -58,20 +68,40 @@ export default function StocksPage() {
     (quotes[s.symbol]?.name || s.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const isWatchlisted = watchlistSymbols.includes(activeSymbol);
+  const watchlistsContainingSymbol = lists.filter(l => l.symbols.includes(activeSymbol));
+  const isWatchlisted = watchlistsContainingSymbol.length > 0;
 
-  const toggleWatchlist = async () => {
-    if (isWatchlisted) {
-      await dispatch(removeFromWatchlist(activeSymbol));
-      toast.success(`${activeSymbol} removed from Watchlist`);
-    } else {
-      const res = await dispatch(addToWatchlist(activeSymbol));
-      if (addToWatchlist.fulfilled.match(res)) {
-        toast.success(`${activeSymbol} added to Watchlist`);
-      } else {
-        toast.error('Failed to add to watchlist');
+  const openWatchlistModal = () => {
+    const initialSelected = {};
+    lists.forEach(l => {
+      initialSelected[l._id] = l.symbols.includes(activeSymbol);
+    });
+    setSelectedWatchlists(initialSelected);
+    setWatchlistModalOpen(true);
+  };
+
+  const handleSaveWatchlists = async (e) => {
+    e.preventDefault();
+    let addCount = 0;
+    let removeCount = 0;
+
+    for (const list of lists) {
+      const wasInList = list.symbols.includes(activeSymbol);
+      const isNowSelected = selectedWatchlists[list._id];
+
+      if (!wasInList && isNowSelected) {
+        await dispatch(addToWatchlist({ listId: list._id, symbol: activeSymbol }));
+        addCount++;
+      } else if (wasInList && !isNowSelected) {
+        await dispatch(removeFromWatchlist({ listId: list._id, symbol: activeSymbol }));
+        removeCount++;
       }
     }
+
+    if (addCount > 0 || removeCount > 0) {
+      toast.success('Watchlists updated');
+    }
+    setWatchlistModalOpen(false);
   };
 
   const handleCreateAlert = async (e) => {
@@ -90,6 +120,32 @@ export default function StocksPage() {
       setAlertTargetPrice('');
     } else {
       toast.error('Failed to set alert');
+    }
+  };
+
+  const initiateTrade = (type) => {
+    if (tradeQuantity <= 0) return;
+    setTradeType(type);
+    setTradeModalOpen(true);
+  };
+
+  const confirmTrade = async (e) => {
+    e.preventDefault();
+    setIsTrading(true);
+    const res = await dispatch(tradeStock({
+      symbol: activeSymbol,
+      name: profile?.name || liveQuote?.name,
+      type: tradeType,
+      quantity: tradeQuantity
+    }));
+    setIsTrading(false);
+    setTradeModalOpen(false);
+    
+    if (tradeStock.fulfilled.match(res)) {
+      toast.success(res.payload.message);
+      setTradeQuantity(1);
+    } else {
+      toast.error(res.payload || 'Trade failed');
     }
   };
 
@@ -191,8 +247,35 @@ export default function StocksPage() {
               <div className="flex flex-col items-end gap-4">
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={tradeQuantity}
+                    onChange={(e) => setTradeQuantity(Number(e.target.value))}
+                    className="w-16 h-9 px-2 text-center rounded-md border text-sm"
+                    style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                  />
                   <button
-                    onClick={toggleWatchlist}
+                    onClick={() => initiateTrade('BUY')}
+                    disabled={isTrading}
+                    className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
+                    style={{ backgroundColor: 'var(--success, #22c55e)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => initiateTrade('SELL')}
+                    disabled={isTrading}
+                    className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
+                    style={{ backgroundColor: 'var(--destructive, #ef4444)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
+                  >
+                    Sell
+                  </button>
+                  
+                  <div className="w-px h-6 mx-1" style={{ backgroundColor: 'var(--border)' }}></div>
+
+                  <button
+                    onClick={openWatchlistModal}
                     className="h-9 px-3 flex items-center gap-2 rounded-md border text-sm font-medium transition-colors"
                     style={{ 
                       backgroundColor: isWatchlisted ? 'oklch(0.85 0.14 85 / 0.15)' : 'var(--surface)', 
@@ -293,6 +376,49 @@ export default function StocksPage() {
         )}
       </div>
 
+      {/* Watchlist Modal */}
+      {watchlistModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'oklch(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-xl border shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h3 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>Save to Watchlist</h3>
+              <button onClick={() => setWatchlistModalOpen(false)} className="opacity-70 hover:opacity-100 transition-opacity">
+                <X className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveWatchlists} className="p-4 space-y-4">
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {lists.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--muted-foreground)' }}>You don't have any watchlists yet. Create one from the Watchlists page.</p>
+                ) : (
+                  lists.map((list) => (
+                    <label key={list._id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedWatchlists[list._id] || false}
+                        onChange={(e) => setSelectedWatchlists({ ...selectedWatchlists, [list._id]: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{list.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={lists.length === 0}
+                  className="w-full h-10 rounded-md text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Alert Modal */}
       {alertModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'oklch(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}>
@@ -347,6 +473,60 @@ export default function StocksPage() {
                   style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
                 >
                   Create Alert
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Trade Confirmation Modal */}
+      {tradeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'oklch(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-xl border shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h3 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>Confirm {tradeType}</h3>
+              <button onClick={() => setTradeModalOpen(false)} disabled={isTrading} className="opacity-70 hover:opacity-100 transition-opacity">
+                <X className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
+              </button>
+            </div>
+            <form onSubmit={confirmTrade} className="p-4 space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--muted-foreground)' }}>Stock</span>
+                  <span className="font-medium" style={{ color: 'var(--foreground)' }}>{activeSymbol}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--muted-foreground)' }}>Quantity</span>
+                  <span className="font-medium" style={{ color: 'var(--foreground)' }}>{tradeQuantity}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--muted-foreground)' }}>Current Price</span>
+                  <span className="font-medium" style={{ color: 'var(--foreground)' }}>₹{liveQuote?.price?.toFixed(2) || '---'}</span>
+                </div>
+                <div className="pt-3 border-t flex justify-between font-medium" style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}>
+                  <span>Estimated Total</span>
+                  <span>₹{liveQuote?.price ? (liveQuote.price * tradeQuantity).toFixed(2) : '---'}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTradeModalOpen(false)}
+                  disabled={isTrading}
+                  className="flex-1 h-10 rounded-md text-sm font-medium transition-colors border"
+                  style={{ backgroundColor: 'transparent', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isTrading}
+                  className="flex-1 h-10 rounded-md text-sm font-medium transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: tradeType === 'BUY' ? 'var(--success, #22c55e)' : 'var(--destructive, #ef4444)', color: 'white' }}
+                >
+                  {isTrading ? 'Processing...' : `Confirm ${tradeType}`}
                 </button>
               </div>
             </form>

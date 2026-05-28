@@ -14,6 +14,7 @@ import MarketPage      from './pages/MarketPage';
 import StocksPage      from './pages/StocksPage';
 import WatchlistPage   from './pages/WatchlistPage';
 import PortfolioPage   from './pages/PortfolioPage';
+import WalletPage      from './pages/WalletPage';
 
 // ─── Route Guards ────────────────────────────────────────────────────────────
 
@@ -75,6 +76,7 @@ const AppRoutes = () => (
       <Route path="stocks/:symbol"  element={<StocksPage />} />
       <Route path="watchlist"       element={<WatchlistPage />} />
       <Route path="portfolio"       element={<PortfolioPage />} />
+      <Route path="wallet"          element={<WalletPage />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/login" replace />} />

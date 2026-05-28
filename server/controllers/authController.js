@@ -97,4 +97,46 @@ const getMe = async (req, res) => {
   });
 };
 
-module.exports = { signup, login, getMe };
+// @route   PUT /api/auth/update
+// @access  Protected
+const updateCredentials = async (req, res) => {
+  try {
+    const { name, currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: 'Current password is required to set a new password' });
+      }
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: 'Incorrect current password' });
+      }
+      user.password = newPassword;
+    }
+
+    if (name) {
+      user.name = name;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Credentials updated successfully',
+      user: formatUser(user),
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const message = Object.values(error.errors)[0].message;
+      return res.status(400).json({ success: false, message });
+    }
+    res.status(500).json({ success: false, message: 'Server error. Please try again.' });
+  }
+};
+
+module.exports = { signup, login, getMe, updateCredentials };

@@ -30,6 +30,15 @@ export const signupUser = createAsyncThunk('auth/signup', async ({ name, email, 
   }
 });
 
+export const updateCredentialsThunk = createAsyncThunk('auth/update', async ({ name, currentPassword, newPassword }, { rejectWithValue }) => {
+  try {
+    const { data } = await axiosInstance.put('/auth/update', { name, currentPassword, newPassword });
+    return data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to update credentials');
+  }
+});
+
 // ─── Slice ───────────────────────────────────────────────────────────────────
 
 const authSlice = createSlice({
@@ -61,7 +70,11 @@ const authSlice = createSlice({
       // signup
       .addCase(signupUser.pending,   (s) => { s.loading = true; s.error = null; })
       .addCase(signupUser.fulfilled, (s, { payload }) => { s.user = payload; s.loading = false; })
-      .addCase(signupUser.rejected,  (s, { payload }) => { s.loading = false; s.error = payload; });
+      .addCase(signupUser.rejected,  (s, { payload }) => { s.loading = false; s.error = payload; })
+      // update credentials
+      .addCase(updateCredentialsThunk.pending, (s) => { s.error = null; })
+      .addCase(updateCredentialsThunk.fulfilled, (s, { payload }) => { s.user = payload; })
+      .addCase(updateCredentialsThunk.rejected, (s, { payload }) => { s.error = payload; });
   },
 });
 

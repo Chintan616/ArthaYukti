@@ -22,6 +22,20 @@ export const fetchPortfolioHistory = createAsyncThunk('portfolio/history', async
   } catch (e) { return rejectWithValue(e.response?.data?.message); }
 });
 
+export const fetchPortfolioChart = createAsyncThunk('portfolio/chart', async (_, { rejectWithValue }) => {
+  try {
+    const { data } = await axiosInstance.get('/portfolio/chart');
+    return data.chart;
+  } catch (e) { return rejectWithValue(e.response?.data?.message); }
+});
+
+export const tradeStock = createAsyncThunk('portfolio/trade', async (tradeData, { rejectWithValue }) => {
+  try {
+    const { data } = await axiosInstance.post('/portfolio/trade', tradeData);
+    return data; // { portfolio, transaction }
+  } catch (e) { return rejectWithValue(e.response?.data?.message); }
+});
+
 const portfolioSlice = createSlice({
   name: 'portfolio',
   initialState: {
@@ -29,7 +43,9 @@ const portfolioSlice = createSlice({
     holdings:       [],
     summary:        null,
     history:        [],
+    chartData:      [],
     loading:        false,
+    chartLoading:   false,
     error:          null,
   },
   reducers: {
@@ -55,7 +71,22 @@ const portfolioSlice = createSlice({
       })
       .addCase(fetchPortfolioSummary.rejected, (s) => { s.loading = false; })
 
-      .addCase(fetchPortfolioHistory.fulfilled, (s, { payload }) => { s.history = payload; });
+      .addCase(fetchPortfolioHistory.fulfilled, (s, { payload }) => { s.history = payload; })
+      
+      .addCase(fetchPortfolioChart.pending, (s) => { s.chartLoading = true; })
+      .addCase(fetchPortfolioChart.fulfilled, (s, { payload }) => {
+        s.chartData = payload;
+        s.chartLoading = false;
+      })
+      .addCase(fetchPortfolioChart.rejected, (s) => { s.chartLoading = false; })
+      
+      .addCase(tradeStock.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(tradeStock.fulfilled, (s, { payload }) => {
+        s.virtualBalance = payload.portfolio.virtualBalance;
+        s.holdings = payload.portfolio.holdings;
+        s.loading = false;
+      })
+      .addCase(tradeStock.rejected, (s, { payload }) => { s.loading = false; s.error = payload; });
   },
 });
 

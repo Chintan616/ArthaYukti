@@ -132,11 +132,21 @@ const getCandles = async (symbol, resolution = 'D') => {
   const interval = intervalMap[resolution] || '1d';
 
   try {
-    const d = await yahooFinance.historical(symbol, {
-      period1: fromDate,
-      period2: toDate,
-      interval: interval
-    });
+    let d;
+    if (interval === '1h' || interval === '30m') {
+      const chartResult = await yahooFinance.chart(symbol, {
+        period1: fromDate,
+        period2: toDate,
+        interval: interval
+      });
+      d = chartResult.quotes || [];
+    } else {
+      d = await yahooFinance.historical(symbol, {
+        period1: fromDate,
+        period2: toDate,
+        interval: interval
+      });
+    }
 
     if (!d || d.length === 0) return [];
 

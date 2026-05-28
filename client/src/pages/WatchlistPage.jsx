@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Plus, Trash2, Search, X, Bell } from 'lucide-react';
-import { fetchWatchlist, addToWatchlist, removeFromWatchlist } from '../store/slices/watchlistSlice';
+import { fetchWatchlists, createWatchlist, deleteWatchlist, addToWatchlist, removeFromWatchlist, setActiveListId } from '../store/slices/watchlistSlice';
 import { fetchAlerts, deleteAlert, toggleAlert } from '../store/slices/alertSlice';
 import { searchStocks, clearSearch } from '../store/slices/stockSlice';
 import PriceChange from '../components/stock/PriceChange';
@@ -14,7 +14,9 @@ import toast from 'react-hot-toast';
 export default function WatchlistPage() {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
-  const { symbols, quotes, loading } = useSelector((s) => s.watchlist);
+  const { lists, activeListId, quotes, loading } = useSelector((s) => s.watchlist);
+  const activeList = lists.find(l => l._id === activeListId);
+  const symbols = activeList ? activeList.symbols : [];
   const { searchResults, loadingMap } = useSelector((s) => s.stocks);
   const { items: alerts, loading: alertsLoading } = useSelector((s) => s.alerts);
 
@@ -22,8 +24,14 @@ export default function WatchlistPage() {
   const debounced               = useDebounce(addQuery, 400);
   const [showSearch, setShowSearch] = useState(false);
 
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  
+  const [deleteListModalOpen, setDeleteListModalOpen] = useState(false);
+  const [listToDelete, setListToDelete] = useState(null);
+
   useEffect(() => { 
-    dispatch(fetchWatchlist()); 
+    dispatch(fetchWatchlists()); 
     dispatch(fetchAlerts());
   }, [dispatch]);
 
@@ -33,7 +41,8 @@ export default function WatchlistPage() {
   }, [debounced, dispatch]);
 
   const handleAdd = async (symbol) => {
-    const result = await dispatch(addToWatchlist(symbol));
+    if (!activeListId) return toast.error('No active watchlist');
+    const result = await dispatch(addToWatchlist({ listId: activeListId, symbol }));
     if (addToWatchlist.fulfilled.match(result)) {
       toast.success(`${symbol} added to watchlist`);
       setAddQuery(''); dispatch(clearSearch()); setShowSearch(false);
@@ -43,8 +52,36 @@ export default function WatchlistPage() {
   };
 
   const handleRemove = async (symbol) => {
-    await dispatch(removeFromWatchlist(symbol));
+    if (!activeListId) return;
+    await dispatch(removeFromWatchlist({ listId: activeListId, symbol }));
     toast.success(`${symbol} removed`);
+  };
+
+  const handleCreateList = async (e) => {
+    e.preventDefault();
+    if (!newListName.trim()) return;
+    const res = await dispatch(createWatchlist(newListName));
+    if (createWatchlist.fulfilled.match(res)) {
+      toast.success('Watchlist created');
+      setNewListName('');
+      setCreateModalOpen(false);
+    } else {
+      toast.error(res.payload || 'Failed to create watchlist');
+    }
+  };
+
+  const handleDeleteList = (id) => {
+    if (lists.length <= 1) return toast.error('Cannot delete your last watchlist');
+    setListToDelete(id);
+    setDeleteListModalOpen(true);
+  };
+
+  const confirmDeleteList = async () => {
+    if (!listToDelete) return;
+    await dispatch(deleteWatchlist(listToDelete));
+    toast.success('Watchlist deleted');
+    setDeleteListModalOpen(false);
+    setListToDelete(null);
   };
 
   const handleDeleteAlert = async (id) => {
@@ -132,7 +169,42 @@ export default function WatchlistPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Left Side: Watchlist */}
         <div className="space-y-4">
-          <h2 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>My Watchlist</h2>
+          <div className="flex items-center justify-between">
+            {lists.length > 0 ? (
+              <select 
+                value={activeListId || ''} 
+                onChange={(e) => dispatch(setActiveListId(e.target.value))}
+                className="h-9 px-3 rounded-md border text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              >
+                {lists.map(l => (
+                  <option key={l._id} value={l._id}>{l.name}</option>
+                ))}
+              </select>
+            ) : (
+              <h2 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>My Watchlist</h2>
+            )}
+            
+            <div className="flex items-center gap-2">
+              {lists.length > 1 && (
+                <button 
+                  onClick={() => handleDeleteList(activeListId)}
+                  className="h-8 px-2 rounded text-xs transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  style={{ color: 'var(--muted-foreground)' }}
+                >
+                  Delete List
+                </button>
+              )}
+              <button 
+                onClick={() => setCreateModalOpen(true)}
+                className="h-8 px-3 flex items-center gap-1.5 rounded border text-xs font-medium transition-colors"
+                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              >
+                <Plus className="h-3 w-3" />
+                New List
+              </button>
+            </div>
+          </div>
           <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
         {/* Column headers */}
         <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
@@ -252,6 +324,82 @@ export default function WatchlistPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Watchlist Modal */}
+      {createModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'oklch(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-xl border shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h3 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>Create Watchlist</h3>
+              <button onClick={() => setCreateModalOpen(false)} className="opacity-70 hover:opacity-100 transition-opacity">
+                <X className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateList} className="p-4 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--muted-foreground)' }}>Watchlist Name</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md text-sm border focus:outline-none"
+                  style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                  placeholder="e.g. Tech Stocks"
+                />
+              </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={!newListName.trim()}
+                  className="w-full h-10 rounded-md text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Watchlist Modal */}
+      {deleteListModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'oklch(0 0 0 / 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-xl border shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <h3 className="font-sans font-medium text-lg" style={{ color: 'var(--foreground)' }}>Delete Watchlist</h3>
+              <button onClick={() => setDeleteListModalOpen(false)} className="opacity-70 hover:opacity-100 transition-opacity">
+                <X className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                Are you sure you want to delete this watchlist? This action cannot be undone.
+              </p>
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteListModalOpen(false)}
+                  className="flex-1 h-10 rounded-md text-sm font-medium transition-colors border"
+                  style={{ backgroundColor: 'transparent', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteList}
+                  className="flex-1 h-10 rounded-md text-sm font-medium transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: 'var(--destructive, #ef4444)', color: 'white' }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
