@@ -30,6 +30,16 @@ export const signupUser = createAsyncThunk('auth/signup', async ({ name, email, 
   }
 });
 
+export const googleAuthUser = createAsyncThunk('auth/google', async (credential, { rejectWithValue }) => {
+  try {
+    const { data } = await axiosInstance.post('/auth/google', { credential });
+    localStorage.setItem('ay_token', data.token);
+    return data.user;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Google sign-in failed');
+  }
+});
+
 export const updateCredentialsThunk = createAsyncThunk('auth/update', async ({ name, currentPassword, newPassword }, { rejectWithValue }) => {
   try {
     const { data } = await axiosInstance.put('/auth/update', { name, currentPassword, newPassword });
@@ -71,6 +81,10 @@ const authSlice = createSlice({
       .addCase(signupUser.pending,   (s) => { s.loading = true; s.error = null; })
       .addCase(signupUser.fulfilled, (s, { payload }) => { s.user = payload; s.loading = false; })
       .addCase(signupUser.rejected,  (s, { payload }) => { s.loading = false; s.error = payload; })
+      // google auth
+      .addCase(googleAuthUser.pending,   (s) => { s.loading = true; s.error = null; })
+      .addCase(googleAuthUser.fulfilled, (s, { payload }) => { s.user = payload; s.loading = false; })
+      .addCase(googleAuthUser.rejected,  (s, { payload }) => { s.loading = false; s.error = payload; })
       // update credentials
       .addCase(updateCredentialsThunk.pending, (s) => { s.error = null; })
       .addCase(updateCredentialsThunk.fulfilled, (s, { payload }) => { s.user = payload; })

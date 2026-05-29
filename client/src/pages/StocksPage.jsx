@@ -247,32 +247,36 @@ export default function StocksPage() {
               <div className="flex flex-col items-end gap-4">
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    value={tradeQuantity}
-                    onChange={(e) => setTradeQuantity(Number(e.target.value))}
-                    className="w-16 h-9 px-2 text-center rounded-md border text-sm"
-                    style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
-                  />
-                  <button
-                    onClick={() => initiateTrade('BUY')}
-                    disabled={isTrading}
-                    className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
-                    style={{ backgroundColor: 'var(--success, #22c55e)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
-                  >
-                    Buy
-                  </button>
-                  <button
-                    onClick={() => initiateTrade('SELL')}
-                    disabled={isTrading}
-                    className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
-                    style={{ backgroundColor: 'var(--destructive, #ef4444)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
-                  >
-                    Sell
-                  </button>
-                  
-                  <div className="w-px h-6 mx-1" style={{ backgroundColor: 'var(--border)' }}></div>
+                  {!activeSymbol.startsWith('^') && (
+                    <>
+                      <input
+                        type="number"
+                        min="1"
+                        value={tradeQuantity}
+                        onChange={(e) => setTradeQuantity(Number(e.target.value))}
+                        className="w-16 h-9 px-2 text-center rounded-md border text-sm"
+                        style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                      />
+                      <button
+                        onClick={() => initiateTrade('BUY')}
+                        disabled={isTrading}
+                        className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
+                        style={{ backgroundColor: 'var(--success, #22c55e)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
+                      >
+                        Buy
+                      </button>
+                      <button
+                        onClick={() => initiateTrade('SELL')}
+                        disabled={isTrading}
+                        className="h-9 px-4 rounded-md text-sm font-medium transition-colors"
+                        style={{ backgroundColor: 'var(--destructive, #ef4444)', color: 'white', opacity: isTrading ? 0.7 : 1 }}
+                      >
+                        Sell
+                      </button>
+                      
+                      <div className="w-px h-6 mx-1" style={{ backgroundColor: 'var(--border)' }}></div>
+                    </>
+                  )}
 
                   <button
                     onClick={openWatchlistModal}

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
 
 import store from './store';
@@ -87,6 +88,7 @@ const AppRoutes = () => (
 
 export default function App() {
   return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
     <Provider store={store}>
       <BrowserRouter>
         <AppInit />
@@ -108,5 +110,6 @@ export default function App() {
         />
       </BrowserRouter>
     </Provider>
+    </GoogleOAuthProvider>
   );
 }

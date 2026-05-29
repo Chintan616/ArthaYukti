@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { GoogleLogin } from '@react-oauth/google';
 import { Eye, EyeOff, TrendingUp, UserPlus, AlertCircle, Check } from 'lucide-react';
-import { signupUser, clearError } from '../store/slices/authSlice';
+import { signupUser, googleAuthUser, clearError } from '../store/slices/authSlice';
 import toast from 'react-hot-toast';
 
 const strength = (pw) => {
@@ -44,6 +45,14 @@ export default function SignupPage() {
     const result = await dispatch(signupUser({ name: form.name.trim(), email: form.email, password: form.password }));
     if (signupUser.fulfilled.match(result)) {
       toast.success('Account created! Welcome to ArthaYukti.');
+      navigate('/dashboard/market');
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    const result = await dispatch(googleAuthUser(credentialResponse.credential));
+    if (googleAuthUser.fulfilled.match(result)) {
+      toast.success('Welcome to ArthaYukti!');
       navigate('/dashboard/market');
     }
   };
@@ -122,6 +131,26 @@ export default function SignupPage() {
               {loading ? <span className="h-4 w-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> : <><UserPlus className="h-4 w-4 stroke-[1.5]" />Create Account</>}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="mt-6 flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+            <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>or</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+          </div>
+
+          {/* Google Signup */}
+          <div className="mt-4 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google sign-in failed')}
+              theme="filled_black"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
+              width="368"
+            />
+          </div>
 
           <div className="mt-6 pt-6 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
             {['Real-time market data & live charts', 'Paper trading with virtual ₹1,00,000', 'AI-powered portfolio analysis (Phase 3)'].map((item) => (

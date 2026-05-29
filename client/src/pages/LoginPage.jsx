@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { GoogleLogin } from '@react-oauth/google';
 import { Eye, EyeOff, TrendingUp, LogIn, AlertCircle } from 'lucide-react';
-import { loginUser, clearError } from '../store/slices/authSlice';
+import { loginUser, googleAuthUser, clearError } from '../store/slices/authSlice';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -21,6 +22,14 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await dispatch(loginUser({ email: form.email, password: form.password }));
     if (loginUser.fulfilled.match(result)) {
+      toast.success('Welcome back!');
+      navigate('/dashboard/market');
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    const result = await dispatch(googleAuthUser(credentialResponse.credential));
+    if (googleAuthUser.fulfilled.match(result)) {
       toast.success('Welcome back!');
       navigate('/dashboard/market');
     }
@@ -88,7 +97,27 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-7 text-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
+          {/* Divider */}
+          <div className="mt-6 flex items-center gap-3">
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+            <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>or</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border)' }} />
+          </div>
+
+          {/* Google Login */}
+          <div className="mt-4 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Google sign-in failed')}
+              theme="filled_black"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
+              width="368"
+            />
+          </div>
+
+          <p className="mt-6 text-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
             Don&apos;t have an account?{' '}
             <Link to="/signup" style={{ color: 'var(--primary)' }}>Create account</Link>
           </p>
