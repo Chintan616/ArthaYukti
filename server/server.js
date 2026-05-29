@@ -57,7 +57,6 @@ app.use(express.json());
 
 // ─── Rate limiting ───────────────────────────────────────────────────────────
 app.use('/api', apiLimiter);
-app.use('/api/auth', authLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes);

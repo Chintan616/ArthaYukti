@@ -1,12 +1,19 @@
+const axios = require('axios');
 const cache = require('./cacheService');
-const YahooFinance = require('yahoo-finance2').default;
 
-// Instantiate yahoo-finance2 and suppress the upgrade survey notice
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+const UPSTOX_BASE = 'https://api.upstox.com/v2';
+const getToken    = () => process.env.UPSTOX_ACCESS_TOKEN;
 
-// ─── Static data ─────────────────────────────────────────────────────────────
+// Shared axios instance for Upstox REST calls
+const upstox = axios.create({ baseURL: UPSTOX_BASE });
+upstox.interceptors.request.use((cfg) => {
+  cfg.headers['Authorization'] = `Bearer ${getToken()}`;
+  cfg.headers['Accept']        = 'application/json';
+  return cfg;
+});
 
-// 50 popular Indian stocks tracked for trending / gainers / losers (BSE)
+// ─── Static data (unchanged — frontend reads these) ──────────────────────────
+
 const MARKET_SYMBOLS = [
   'RELIANCE.BO', 'TCS.BO', 'HDFCBANK.BO', 'INFY.BO', 'HINDUNILVR.BO',
   'ICICIBANK.BO', 'SBIN.BO', 'BHARTIARTL.BO', 'ITC.BO', 'KOTAKBANK.BO',
@@ -20,194 +27,263 @@ const MARKET_SYMBOLS = [
   'EICHERMOT.BO', 'UPL.BO', 'BPCL.BO', 'SIEMENS.BO', 'SBILIFE.BO',
 ];
 
-// 8 Popular Indian Indices
 const MARKET_INDICES = [
-  { symbol: '^BSESN',     name: 'Sensex' },
-  { symbol: '^NSEI',      name: 'Nifty 50' },
-  { symbol: '^NSEBANK',   name: 'Nifty Bank' },
-  { symbol: '^CNXIT',     name: 'Nifty IT' },
-  { symbol: '^CNXAUTO',   name: 'Nifty Auto' },
-  { symbol: '^CNXFMCG',   name: 'Nifty FMCG' },
-  { symbol: '^CNXPHARMA', name: 'Nifty Pharma' },
+  { symbol: '^BSESN',     name: 'Sensex'          },
+  { symbol: '^NSEI',      name: 'Nifty 50'        },
+  { symbol: '^NSEBANK',   name: 'Nifty Bank'      },
+  { symbol: '^CNXIT',     name: 'Nifty IT'        },
+  { symbol: '^CNXAUTO',   name: 'Nifty Auto'      },
+  { symbol: '^CNXFMCG',   name: 'Nifty FMCG'     },
+  { symbol: '^CNXPHARMA', name: 'Nifty Pharma'    },
   { symbol: '^NSMIDCP',   name: 'Nifty Midcap 50' },
 ];
 
-// Company names for the popular list
-const STOCK_NAMES = {
-  'RELIANCE.BO': 'Reliance Ind.',     'TCS.BO': 'TCS',                 'HDFCBANK.BO': 'HDFC Bank',
-  'INFY.BO': 'Infosys',               'HINDUNILVR.BO': 'HUL',          'ICICIBANK.BO': 'ICICI Bank',
-  'SBIN.BO': 'State Bank of India',   'BHARTIARTL.BO': 'Bharti Airtel','ITC.BO': 'ITC Limited',
-  'KOTAKBANK.BO': 'Kotak Mahindra',   'LT.BO': 'Larsen & Toubro',      'BAJFINANCE.BO': 'Bajaj Finance',
-  'HCLTECH.BO': 'HCL Tech',           'MARUTI.BO': 'Maruti Suzuki',    'ASIANPAINT.BO': 'Asian Paints',
-  'AXISBANK.BO': 'Axis Bank',         'TITAN.BO': 'Titan Company',     'SUNPHARMA.BO': 'Sun Pharma',
-  'WIPRO.BO': 'Wipro',                'ULTRACEMCO.BO': 'UltraTech',    'NESTLEIND.BO': 'Nestle India',
-  'ONGC.BO': 'ONGC',                  'NTPC.BO': 'NTPC Limited',       'TECHM.BO': 'Tech Mahindra',
-  'TATASTEEL.BO': 'Tata Steel',       'BAJAJFINSV.BO': 'Bajaj Finserv','POWERGRID.BO': 'Power Grid',
-  'M&M.BO': 'M&M',                    'HDFCLIFE.BO': 'HDFC Life',      'INDUSINDBK.BO': 'IndusInd Bank',
-  'GRASIM.BO': 'Grasim Industries',   'DRREDDY.BO': 'Dr. Reddy\'s',    'CIPLA.BO': 'Cipla',
-  'HINDALCO.BO': 'Hindalco',          'JSWSTEEL.BO': 'JSW Steel',      'APOLLOHOSP.BO': 'Apollo Hospitals',
-  'ADANIENT.BO': 'Adani Ent.',        'ADANIPORTS.BO': 'Adani Ports',  'AMBUJACEM.BO': 'Ambuja Cements',
-  'COALINDIA.BO': 'Coal India',       'TATACONSUM.BO': 'Tata Consumer','BRITANNIA.BO': 'Britannia',
-  'DIVISLAB.BO': 'Divi\'s Labs',      'BAJAJ-AUTO.BO': 'Bajaj Auto',   'HEROMOTOCO.BO': 'Hero MotoCorp',
-  'EICHERMOT.BO': 'Eicher Motors',    'UPL.BO': 'UPL Limited',         'BPCL.BO': 'BPCL',
-  'SIEMENS.BO': 'Siemens',            'SBILIFE.BO': 'SBI Life',
+const allInstruments = require('../data/instruments.json');
+
+const SYMBOL_TO_INSTRUMENT = {};
+const STOCK_NAMES = {};
+const INSTRUMENT_TO_SYMBOL = {};
+
+// First pass: load all 2,600+ instruments using their clean Upstox symbols
+allInstruments.forEach(inst => {
+  SYMBOL_TO_INSTRUMENT[inst.symbol] = inst.instrument_key;
+  INSTRUMENT_TO_SYMBOL[inst.instrument_key.replace('|', ':')] = inst.symbol; // Upstox REST uses colon
+  STOCK_NAMES[inst.symbol] = inst.name;
+});
+
+// Second pass: support legacy `.BO` symbols so existing MongoDB watchlists and dashboard don't break
+MARKET_SYMBOLS.forEach(legacySymbol => {
+  if (legacySymbol.endsWith('.BO')) {
+    const cleanSymbol = legacySymbol.replace('.BO', '');
+    if (SYMBOL_TO_INSTRUMENT[cleanSymbol]) {
+      const instrKey = SYMBOL_TO_INSTRUMENT[cleanSymbol];
+      SYMBOL_TO_INSTRUMENT[legacySymbol] = instrKey;
+      STOCK_NAMES[legacySymbol] = STOCK_NAMES[cleanSymbol];
+      // Point the REST response back to the legacy symbol so frontend matches it
+      INSTRUMENT_TO_SYMBOL[instrKey.replace('|', ':')] = legacySymbol;
+    }
+  }
+});
+
+// Also ensure legacy indices map back correctly
+MARKET_INDICES.forEach(idx => {
+  const instrKey = SYMBOL_TO_INSTRUMENT[idx.symbol];
+  if (instrKey) {
+    INSTRUMENT_TO_SYMBOL[instrKey.replace('|', ':')] = idx.symbol;
+  }
+});
+
+// ─── Live quote store — updated in real time by the WebSocket feed ────────────
+const liveQuotes = new Map(); // yahooSymbol → quote object
+
+const updateLiveQuote = (quote) => {
+  liveQuotes.set(quote.symbol, quote);
+  cache.set(`quote:${quote.symbol}`, quote, 30).catch(() => {});
+};
+
+// ─── Quote shape builder ──────────────────────────────────────────────────────
+
+const buildQuote = (symbol, d) => {
+  const prevClose     = d.ohlc?.close ?? 0;
+  const price         = d.last_price  ?? 0;
+  const netChange     = d.net_change  ?? (price - prevClose);
+  const changePercent = prevClose > 0 ? (netChange / prevClose) * 100 : 0;
+
+  return {
+    symbol,
+    name:          STOCK_NAMES[symbol] || MARKET_INDICES.find(i => i.symbol === symbol)?.name || symbol,
+    price,
+    change:        netChange,
+    changePercent,
+    high:          d.ohlc?.high  ?? price,
+    low:           d.ohlc?.low   ?? price,
+    open:          d.ohlc?.open  ?? price,
+    prevClose,
+    timestamp:     Math.floor(Date.now() / 1000),
+  };
 };
 
 // ─── Core API functions ───────────────────────────────────────────────────────
 
 /**
- * Fetch real-time quote for a single symbol.
- * Cached for 30 seconds.
+ * Single quote — live WebSocket cache first, then REST + 30 s cache.
  */
 const getQuote = async (symbol) => {
-  const key = `quote:${symbol}`;
-  const hit = await cache.get(key);
+  if (liveQuotes.has(symbol)) return liveQuotes.get(symbol);
+
+  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  if (!instrKey) return null;
+
+  const cacheKey = `quote:${symbol}`;
+  const hit = await cache.get(cacheKey);
   if (hit) return hit;
 
   try {
-    const d = await yahooFinance.quote(symbol);
+    const { data: resp } = await upstox.get(
+      `/market-quote/quotes?instrument_key=${encodeURIComponent(instrKey)}`
+    );
+    const d = resp.data ? Object.values(resp.data)[0] : null;
+    if (!d) return null;
 
-    if (!d) {
-      console.warn(`[yahooFinance] getQuote returned no data for ${symbol}`);
-      return null;
-    }
-
-    const quote = {
-      symbol,
-      name: STOCK_NAMES[symbol] || MARKET_INDICES.find(i => i.symbol === symbol)?.name || d.shortName || symbol,
-      price:         d.regularMarketPrice ?? 0,
-      change:        d.regularMarketChange ?? 0,
-      changePercent: d.regularMarketChangePercent ?? 0,
-      high:          d.regularMarketDayHigh ?? 0,
-      low:           d.regularMarketDayLow ?? 0,
-      open:          d.regularMarketOpen ?? 0,
-      prevClose:     d.regularMarketPreviousClose ?? 0,
-      timestamp:     d.regularMarketTime ? Math.floor(d.regularMarketTime.getTime() / 1000) : Math.floor(Date.now() / 1000),
-    };
-
-    await cache.set(key, quote, 30);
+    const quote = buildQuote(symbol, d);
+    await cache.set(cacheKey, quote, 30);
     return quote;
-  } catch (error) {
-    console.warn(`[yahooFinance] getQuote failed for ${symbol}:`, error.message);
+  } catch (err) {
+    console.warn(`[upstox] getQuote failed for ${symbol}:`, err.response?.data?.message || err.message);
     return null;
   }
 };
 
 /**
- * Symbol + company name search
- * Returns up to 10 common US stocks (filters out ETFs, FX, etc. based on Yahoo properties).
+ * Bulk quotes — single Upstox API call for all symbols at once.
+ * If the WebSocket feed is warm, returns from the live map instantly.
  */
-const searchStocks = async (query) => {
-  if (!query || query.length < 1) return [];
-  try {
-    const d = await yahooFinance.search(query);
-    return (d.quotes || [])
-      .filter((s) => s.isYahooFinance && (s.quoteType === 'EQUITY'))
-      .slice(0, 10)
-      .map((s) => ({ symbol: s.symbol, name: s.shortName || s.longName }));
-  } catch (error) {
-    console.warn(`[yahooFinance] searchStocks failed for ${query}:`, error.message);
-    return [];
-  }
-};
+const getBulkQuotes = async (symbols) => {
+  const mapped = symbols.filter(s => SYMBOL_TO_INSTRUMENT[s]);
+  if (!mapped.length) return [];
 
-/**
- * Fetch OHLCV candles for charting.
- * resolution: 'D' | 'W' | 'M' | '60' | '30'
- * Returns array of { time (Unix seconds), open, high, low, close, volume }
- */
-const getCandles = async (symbol, resolution = 'D') => {
-  const now = Math.floor(Date.now() / 1000);
-  const ranges = { D: 180, W: 730, M: 1825, '60': 5, '30': 2 };
-  const daysBack = ranges[resolution] ?? 180;
-  
-  const fromDate = new Date((now - daysBack * 86400) * 1000);
-  const toDate = new Date(now * 1000);
+  if (mapped.every(s => liveQuotes.has(s))) return mapped.map(s => liveQuotes.get(s));
 
-  const key = `candles:${symbol}:${resolution}`;
-  const hit = await cache.get(key);
-  if (hit) return hit;
-
-  const intervalMap = { D: '1d', W: '1wk', M: '1mo', '60': '1h', '30': '30m' };
-  const interval = intervalMap[resolution] || '1d';
+  const keyParam = mapped
+    .map(s => encodeURIComponent(SYMBOL_TO_INSTRUMENT[s]))
+    .join(',');
 
   try {
-    let d;
-    if (interval === '1h' || interval === '30m') {
-      const chartResult = await yahooFinance.chart(symbol, {
-        period1: fromDate,
-        period2: toDate,
-        interval: interval
-      });
-      d = chartResult.quotes || [];
-    } else {
-      d = await yahooFinance.historical(symbol, {
-        period1: fromDate,
-        period2: toDate,
-        interval: interval
-      });
+    const { data: resp } = await upstox.get(`/market-quote/quotes?instrument_key=${keyParam}`);
+    const results = [];
+
+    const dataByToken = {};
+    if (resp && resp.data) {
+      for (const item of Object.values(resp.data)) {
+        if (item.instrument_token) {
+          dataByToken[item.instrument_token] = item;
+        }
+      }
     }
 
-    if (!d || d.length === 0) return [];
+    for (const sym of mapped) {
+      const instrKey = SYMBOL_TO_INSTRUMENT[sym];
+      const d = dataByToken[instrKey];
+      if (!d) continue;
+      const quote = buildQuote(sym, d);
+      await cache.set(`quote:${sym}`, quote, 30);
+      liveQuotes.set(sym, quote);
+      results.push(quote);
+    }
+    return results;
+  } catch (err) {
+    console.warn('[upstox] getBulkQuotes REST failed, trying sequential:', err.response?.data?.message || err.message);
+    return (await Promise.all(mapped.map(getQuote))).filter(Boolean);
+  }
+};
 
-    const candles = d.map(item => ({
-      time: Math.floor(item.date.getTime() / 1000),
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close,
-      volume: item.volume
-    }));
+/**
+ * OHLCV candles — maps our resolution codes to Upstox intervals.
+ * Output: [{ time (unix seconds), open, high, low, close, volume }]
+ */
+const getCandles = async (symbol, resolution = 'D') => {
+  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  if (!instrKey) return [];
 
-    const ttl = resolution === 'D' ? 300 : resolution === '60' ? 60 : 600;
-    await cache.set(key, candles, ttl);
+  const cacheKey = `candles:${symbol}:${resolution}`;
+  const hit = await cache.get(cacheKey);
+  if (hit) return hit;
+
+  const intervalMap = { '1': '1minute', '30': '30minute', D: 'day', W: 'week', M: 'month' };
+  const interval    = intervalMap[resolution] || 'day';
+  const isIntraday  = resolution === '1' || resolution === '30';
+  const encodedKey  = encodeURIComponent(instrKey);
+
+  try {
+    let rawCandles;
+
+    if (isIntraday) {
+      const { data: resp } = await upstox.get(
+        `/historical-candle/intraday/${encodedKey}/${interval}`
+      );
+      rawCandles = resp.data?.candles ?? [];
+    } else {
+      const now      = new Date();
+      const toDate   = now.toISOString().split('T')[0];
+      const daysBack = { D: 180, W: 730, M: 1825 }[resolution] ?? 180;
+      const fromDate = new Date(now - daysBack * 86_400_000).toISOString().split('T')[0];
+
+      const { data: resp } = await upstox.get(
+        `/historical-candle/${encodedKey}/${interval}/${toDate}/${fromDate}`
+      );
+      rawCandles = resp.data?.candles ?? [];
+    }
+
+    // Upstox candle: [ISO_ts, open, high, low, close, volume, oi]
+    const candles = rawCandles
+      .map(([ts, open, high, low, close, volume]) => ({
+        time: Math.floor(new Date(ts).getTime() / 1000),
+        open, high, low, close, volume,
+      }))
+      .filter(c => c.open && c.close)
+      .sort((a, b) => a.time - b.time);
+
+    const ttl = isIntraday ? 60 : resolution === 'D' ? 300 : 600;
+    await cache.set(cacheKey, candles, ttl);
     return candles;
-  } catch (error) {
-    console.warn(`[yahooFinance] getCandles failed for ${symbol}:`, error.message);
+  } catch (err) {
+    console.warn(`[upstox] getCandles failed for ${symbol} (${resolution}):`, err.response?.data?.message || err.message);
     return [];
   }
 };
 
 /**
- * Company profile (logo, exchange, market cap, etc.)
- * Cached for 1 hour — rarely changes.
+ * Search — filters our 50-stock list by ticker or company name.
+ * Keeps the same return shape: [{ symbol, name }]
  */
-const getProfile = async (symbol) => {
-  const key = `profile:${symbol}`;
-  const hit = await cache.get(key);
-  if (hit) return hit;
+const searchStocks = (query) => {
+  if (!query || query.length < 1) return [];
+  const q = query.toLowerCase();
+  const results = [];
 
-  try {
-    const d = await yahooFinance.quoteSummary(symbol, { modules: ['assetProfile', 'price'] });
-    const profile = {
-      name: d.price?.shortName || STOCK_NAMES[symbol] || symbol,
-      ticker: symbol,
-      finnhubIndustry: d.assetProfile?.industry || 'N/A', // kept property name to avoid frontend refactor
-      marketCapitalization: d.price?.marketCap ? d.price.marketCap / 1000000 : null, // Finnhub gave marketCap in millions
-      exchange: d.price?.exchangeName || 'N/A',
-      country: d.assetProfile?.country || 'India',
-    };
-    
-    await cache.set(key, profile, 3600);
-    return profile;
-  } catch (error) {
-    console.warn(`[yahooFinance] getProfile failed for ${symbol}:`, error.message);
-    return {};
+  for (const inst of allInstruments) {
+    if (inst.symbol.toLowerCase().includes(q) || inst.name.toLowerCase().includes(q)) {
+      results.push({ symbol: inst.symbol, name: inst.name });
+      if (results.length >= 10) break;
+    }
   }
+  return results;
 };
 
 /**
- * Trending stocks: sorted by absolute % change (most volatile first).
- * Cached for 60 seconds.
+ * Company profile — hardcoded sector/exchange + live quote from cache.
+ * Returns the exact same shape as the old Finnhub/Yahoo implementation.
  */
+const getProfile = async (symbol) => {
+  const cacheKey = `profile:${symbol}`;
+  const hit = await cache.get(cacheKey);
+  if (hit) return hit;
+
+  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  const exchange = instrKey?.startsWith('BSE') ? 'BSE' : 'NSE';
+
+  const profile = {
+    name:                 STOCK_NAMES[symbol] || symbol,
+    ticker:               symbol,
+    finnhubIndustry:      'N/A', // Upstox basic plan doesn't expose sectors
+    marketCapitalization: null, // Upstox basic plan doesn't expose market cap
+    exchange,
+    country:              'India',
+  };
+
+  await cache.set(cacheKey, profile, 3600);
+  return profile;
+};
+
+// ─── Derived market functions (same interface, same output) ──────────────────
+
 const getTrending = async () => {
   const key = 'trending';
   const hit = await cache.get(key);
   if (hit) return hit;
 
-  const quotes = await getBulkQuotes(MARKET_SYMBOLS);
-  const trending = [...quotes]
-    .filter(q => q !== null)
+  const quotes   = await getBulkQuotes(MARKET_SYMBOLS);
+  const trending = quotes.filter(Boolean)
     .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
     .slice(0, 10);
 
@@ -215,91 +291,47 @@ const getTrending = async () => {
   return trending;
 };
 
-/**
- * Top 5 gainers and top 5 losers from MARKET_SYMBOLS.
- * Cached for 90 seconds.
- */
 const getGainersLosers = async () => {
   const key = 'gainers-losers';
   const hit = await cache.get(key);
   if (hit) return hit;
 
-  const quotes = await getBulkQuotes(MARKET_SYMBOLS);
-  const sorted = [...quotes]
-    .filter(q => q !== null)
+  const sorted = (await getBulkQuotes(MARKET_SYMBOLS))
+    .filter(Boolean)
     .sort((a, b) => b.changePercent - a.changePercent);
 
-  const result = {
-    gainers: sorted.slice(0, 5),
-    losers:  sorted.slice(-5).reverse(),
-  };
-
+  const result = { gainers: sorted.slice(0, 5), losers: sorted.slice(-5).reverse() };
   await cache.set(key, result, 90);
   return result;
 };
 
-/**
- * All 50 popular Indian stocks.
- * Cached for 60 seconds.
- */
 const getAllStocks = async () => {
   const key = 'all-stocks';
   const hit = await cache.get(key);
   if (hit) return hit;
 
-  const quotes = await getBulkQuotes(MARKET_SYMBOLS);
-  const allStocks = [...quotes]
-    .filter(q => q !== null)
+  const allStocks = (await getBulkQuotes(MARKET_SYMBOLS))
+    .filter(Boolean)
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
 
   await cache.set(key, allStocks, 60);
   return allStocks;
 };
 
-/**
- * Bulk quotes for a list of symbols (e.g. watchlist).
- * Each quote is individually cached.
- */
-const getBulkQuotes = async (symbols) => {
-  const results = [];
-  // Process in chunks of 5
-  for (let i = 0; i < symbols.length; i += 5) {
-    const chunk = symbols.slice(i, i + 5);
-    const chunkResults = await Promise.all(chunk.map(getQuote));
-    results.push(...chunkResults);
-    // Add a tiny delay between chunks if it's a large list
-    if (i + 5 < symbols.length) await new Promise(res => setTimeout(res, 200));
-  }
-  return results;
-};
-
-/**
- * Get quotes for all supported indices.
- * Cached for 60 seconds.
- */
 const getIndices = async () => {
   const key = 'market-indices';
   const hit = await cache.get(key);
   if (hit) return hit;
 
-  const symbols = MARKET_INDICES.map(i => i.symbol);
-  const quotes = await getBulkQuotes(symbols);
-  
-  const validQuotes = quotes.filter(q => q !== null);
-  await cache.set(key, validQuotes, 60);
-  return validQuotes;
+  const valid = (await getBulkQuotes(MARKET_INDICES.map(i => i.symbol))).filter(Boolean);
+  await cache.set(key, valid, 60);
+  return valid;
 };
 
 module.exports = {
-  getQuote,
-  searchStocks,
-  getCandles,
-  getProfile,
-  getTrending,
-  getGainersLosers,
-  getAllStocks,
-  getIndices,
-  getBulkQuotes,
-  MARKET_SYMBOLS,
-  MARKET_INDICES,
+  getQuote, searchStocks, getCandles, getProfile,
+  getTrending, getGainersLosers, getAllStocks, getIndices,
+  getBulkQuotes, updateLiveQuote,
+  MARKET_SYMBOLS, MARKET_INDICES, STOCK_NAMES,
+  SYMBOL_TO_INSTRUMENT, INSTRUMENT_TO_SYMBOL,
 };

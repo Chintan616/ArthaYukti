@@ -16,7 +16,7 @@ export default function StocksPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { allStocks, loadingMap, currentStock, history, quotes } = useSelector((s) => s.stocks);
+  const { allStocks, loadingMap, currentStock, history, quotes, searchResults } = useSelector((s) => s.stocks);
   const { lists } = useSelector((s) => s.watchlist);
   const [resolution, setResolution] = useState('D');
   const [activeTab, setActiveTab] = useState('chart'); // 'chart' | 'overview'
@@ -41,6 +41,23 @@ export default function StocksPage() {
     dispatch(fetchPortfolio());
   }, [dispatch, allStocks.length]);
 
+  // Handle dynamic backend search
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      const delayDebounceFn = setTimeout(() => {
+        dispatch({ type: 'stocks/search/pending' }); // manual trigger for loading state if needed
+        import('../store/slices/stockSlice').then(({ searchStocks }) => {
+          dispatch(searchStocks(searchQuery));
+        });
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      import('../store/slices/stockSlice').then(({ clearSearch }) => {
+        dispatch(clearSearch());
+      });
+    }
+  }, [searchQuery, dispatch]);
+
   const activeSymbol = routeSymbol?.toUpperCase() || allStocks[0]?.symbol || 'RELIANCE.BO';
 
   useEffect(() => {
@@ -63,10 +80,8 @@ export default function StocksPage() {
   const loadingHistory = loadingMap.history;
   const candles = history[`${activeSymbol}:${resolution}`] || [];
 
-  const filteredStocks = allStocks.filter(s => 
-    s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (quotes[s.symbol]?.name || s.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Use searchResults if typing, otherwise use the Top 50 default list
+  const displayStocks = searchQuery.trim().length > 0 ? searchResults : allStocks;
 
   const watchlistsContainingSymbol = lists.filter(l => l.symbols.includes(activeSymbol));
   const isWatchlisted = watchlistsContainingSymbol.length > 0;
@@ -180,7 +195,7 @@ export default function StocksPage() {
             </div>
           ) : (
             <div className="divide-y" style={{ '--divide-color': 'var(--border)' }}>
-              {filteredStocks.map((s) => {
+              {displayStocks.map((s) => {
                 const q = quotes[s.symbol] ?? s;
                 const isActive = s.symbol === activeSymbol;
                 return (
@@ -200,7 +215,9 @@ export default function StocksPage() {
                       <p className="text-xs truncate w-32" style={{ color: 'var(--muted-foreground)' }}>{q.name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-sm" style={{ color: 'var(--foreground)' }}>₹{q.price?.toFixed(2)}</p>
+                      <p className="font-mono text-sm" style={{ color: 'var(--foreground)' }}>
+                        {q.price ? `₹${q.price.toFixed(2)}` : '---'}
+                      </p>
                       <PriceChange change={q.change} changePercent={q.changePercent} />
                     </div>
                   </button>

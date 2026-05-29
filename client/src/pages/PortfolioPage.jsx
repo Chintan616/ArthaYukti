@@ -48,13 +48,6 @@ export default function PortfolioPage() {
     // Initial fetch
     dispatch(fetchPortfolioSummary());
     dispatch(fetchPortfolioChart());
-
-    // Auto-refresh summary every 30 seconds for real-time updates
-    const intervalId = setInterval(() => {
-      dispatch(fetchPortfolioSummary());
-    }, 30000);
-
-    return () => clearInterval(intervalId);
   }, [dispatch]);
 
   const totalHoldingsValue = summary?.totalValue ?? 0;

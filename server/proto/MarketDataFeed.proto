@@ -1,0 +1,98 @@
+syntax = "proto2";
+
+package com.upstox.marketdatafeeder.rpc.proto;
+
+// ── Feed response (server → client) ───────────────────────────────────────────
+
+enum Type {
+  initial_feed = 1;
+  live_feed    = 2;
+  disconnected = 3;
+  error        = 4;
+}
+
+message FeedResponse {
+  optional Type              type      = 1;
+  map<string, Feed>          feeds     = 2;
+  optional int64             currentTs = 3;
+}
+
+message Feed {
+  optional FullFeed ff   = 7;
+  optional LTPC     ltpc = 8;
+}
+
+message FullFeed {
+  optional MarketFullFeed marketFF = 1;
+  optional IndexFullFeed  indexFF  = 2;
+}
+
+message MarketFullFeed {
+  optional LTPC        ltpc       = 1;
+  optional MarketOHLC  marketOHLC = 2;
+  optional float       atp        = 3;
+  optional int32       cp         = 4;
+  optional int64       vtt        = 5;
+  optional float       oi         = 6;
+  optional float       oiChange   = 7;
+  optional float       ch         = 8;
+  optional float       chp        = 9;
+  optional int64       volTrdToday = 12;
+  optional float       ltv        = 13;
+  optional float       tbq        = 14;
+  optional float       tsq        = 15;
+}
+
+message IndexFullFeed {
+  optional LTPC       ltpc       = 1;
+  optional MarketOHLC marketOHLC = 2;
+  optional float      ch         = 3;
+  optional float      chp        = 4;
+  optional int64      at         = 5;
+}
+
+message LTPC {
+  optional float ltp = 1;
+  optional int64 ltq = 2;
+  optional int64 ltt = 3;
+  optional float cp  = 4;
+}
+
+message MarketOHLC {
+  repeated OHLC ohlc = 1;
+}
+
+message OHLC {
+  optional string interval = 1;
+  optional float  open     = 2;
+  optional float  high     = 3;
+  optional float  low      = 4;
+  optional float  close    = 5;
+  optional int64  vol      = 6;
+  optional int64  ts       = 7;
+}
+
+// ── Subscription request (client → server) ────────────────────────────────────
+
+enum Method {
+  sub         = 0;
+  unsub       = 1;
+  change_mode = 2;
+}
+
+enum Mode {
+  ltpc_mode          = 0;
+  full_mode          = 1;
+  option_greeks_mode = 2;
+}
+
+message DataFeed {
+  optional Mode   mode           = 1;
+  repeated string instrumentKeys = 2;
+}
+
+message MarketDataFeedRequest {
+  optional Method   method = 1;
+  optional DataFeed data   = 2;
+  optional string   guid   = 3;
+}

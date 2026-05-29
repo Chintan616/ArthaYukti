@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { createChart, CrosshairMode } from 'lightweight-charts';
 
 const RESOLUTIONS = [
+  { label: '1m',  value: '1'  },
   { label: '30m', value: '30' },
-  { label: '1H',  value: '60' },
   { label: 'D',   value: 'D'  },
   { label: 'W',   value: 'W'  },
   { label: 'M',   value: 'M'  },
