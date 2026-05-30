@@ -4,6 +4,7 @@ const cors    = require('cors');
 const morgan  = require('morgan');
 const helmet  = require('helmet');
 const dotenv  = require('dotenv');
+dotenv.config();
 
 const mongoose = require('mongoose');
 const connectDB        = require('./config/db');
@@ -18,7 +19,6 @@ const alertRoutes     = require('./routes/alertRoutes');
 const walletRoutes    = require('./routes/walletRoutes');
 
 
-dotenv.config();
 connectDB();
 
 mongoose.connection.once('open', async () => {

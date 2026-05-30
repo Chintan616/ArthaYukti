@@ -14,7 +14,12 @@ if (process.env.REDIS_URL) {
       console.warn(`[cache] Redis error — falling back to memory cache: ${err.message}`);
       redis = null;
     });
-    redis.connect().catch(() => { redis = null; });
+    redis.connect()
+      .then(() => console.log('[cache] Connected to Upstash Redis! 🚀'))
+      .catch((err) => { 
+        console.warn(`[cache] Initial Redis connection failed: ${err.message}`);
+        redis = null; 
+      });
   } catch {
     console.warn('[cache] ioredis not available — using memory cache');
   }
