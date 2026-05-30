@@ -21,14 +21,7 @@ const walletRoutes    = require('./routes/walletRoutes');
 
 connectDB();
 
-mongoose.connection.once('open', async () => {
-  try {
-    await mongoose.connection.db.collection('watchlists').dropIndex('user_1');
-    console.log('[db] Dropped legacy user_1 index on watchlists');
-  } catch (e) {
-    // Ignore if index doesn't exist
-  }
-});
+
 
 const app    = express();
 const server = http.createServer(app); // wrap in http.Server for Socket.IO
@@ -93,6 +86,7 @@ app.use((err, _req, res, _next) => {
   res.status(statusCode).json({
     success: false,
     message: message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 });
 

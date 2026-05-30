@@ -21,7 +21,7 @@ const loadProto = async () => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const getToken = () => process.env.UPSTOX_ACCESS_TOKEN;
+const getToken = () => stockService.getToken();
 
 const getAuthorizedWsUrl = async () => {
   const { data } = await axios.get(
@@ -218,4 +218,14 @@ const initSocket = (httpServer) => {
 
 const getIO = () => io;
 
-module.exports = { initSocket, getIO };
+const reconnectUpstox = () => {
+  if (upstoxWs) {
+    console.log('[upstox-ws] Admin requested reconnect, closing current socket...');
+    upstoxWs.close();
+  } else {
+    stopPoll();
+    connectUpstoxWebSocket();
+  }
+};
+
+module.exports = { initSocket, getIO, reconnectUpstox };

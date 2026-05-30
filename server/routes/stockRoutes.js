@@ -1,7 +1,7 @@
 const express  = require('express');
-const { searchStocks, getTrending, getGainersLosers, getIndices, getAllStocks, getStock, getHistory } =
+const { searchStocks, getTrending, getGainersLosers, getIndices, getAllStocks, getStock, getHistory, updateUpstoxToken } =
   require('../controllers/stockController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/search',         searchStocks);
+router.post('/admin/token',   admin, updateUpstoxToken);
 router.get('/trending',       getTrending);
 router.get('/gainers-losers', getGainersLosers);
 router.get('/indices',        getIndices);

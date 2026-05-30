@@ -139,66 +139,84 @@ const tradeStock = asyncHandler(async (req, res) => {
   const currentPrice = quote.price;
   const totalAmount = currentPrice * quantity;
   
-  const portfolio = await getOrCreate(req.user._id);
-  const holdingIndex = portfolio.holdings.findIndex(h => h.symbol === symbol.toUpperCase());
+  const mongoose = require('mongoose');
+  const session = await mongoose.startSession();
+  session.startTransaction();
   
-  if (type === 'BUY') {
-    if (portfolio.virtualBalance < totalAmount) {
-      res.status(400);
-      throw new Error('Insufficient virtual balance');
+  try {
+    // 1. Fetch portfolio with session lock
+    let portfolio = await Portfolio.findOne({ user: req.user._id }).session(session);
+    if (!portfolio) {
+      portfolio = new Portfolio({ user: req.user._id, virtualBalance: 100000, holdings: [] });
     }
+
+    const holdingIndex = portfolio.holdings.findIndex(h => h.symbol === symbol.toUpperCase());
     
-    portfolio.virtualBalance -= totalAmount;
-    
-    if (holdingIndex >= 0) {
+    if (type === 'BUY') {
+      if (portfolio.virtualBalance < totalAmount) {
+        res.status(400);
+        throw new Error('Insufficient virtual balance');
+      }
+      
+      portfolio.virtualBalance -= totalAmount;
+      
+      if (holdingIndex >= 0) {
+        const h = portfolio.holdings[holdingIndex];
+        const newTotalCost = (h.quantity * h.avgPrice) + totalAmount;
+        h.quantity += quantity;
+        h.avgPrice = newTotalCost / h.quantity;
+      } else {
+        portfolio.holdings.push({
+          symbol: symbol.toUpperCase(),
+          name: name || quote.name,
+          quantity,
+          avgPrice: currentPrice
+        });
+      }
+    } else if (type === 'SELL') {
+      if (holdingIndex < 0 || portfolio.holdings[holdingIndex].quantity < quantity) {
+        res.status(400);
+        throw new Error('Insufficient holding quantity to sell');
+      }
+      
+      portfolio.virtualBalance += totalAmount;
+      
       const h = portfolio.holdings[holdingIndex];
-      const newTotalCost = (h.quantity * h.avgPrice) + totalAmount;
-      h.quantity += quantity;
-      h.avgPrice = newTotalCost / h.quantity;
+      h.quantity -= quantity;
+      if (h.quantity === 0) {
+        portfolio.holdings.splice(holdingIndex, 1);
+      }
     } else {
-      portfolio.holdings.push({
-        symbol: symbol.toUpperCase(),
-        name: name || quote.name,
-        quantity,
-        avgPrice: currentPrice
-      });
-    }
-  } else if (type === 'SELL') {
-    if (holdingIndex < 0 || portfolio.holdings[holdingIndex].quantity < quantity) {
       res.status(400);
-      throw new Error('Insufficient holding quantity to sell');
+      throw new Error('Invalid trade type');
     }
     
-    portfolio.virtualBalance += totalAmount;
+    await portfolio.save({ session });
     
-    const h = portfolio.holdings[holdingIndex];
-    h.quantity -= quantity;
-    if (h.quantity === 0) {
-      portfolio.holdings.splice(holdingIndex, 1);
-    }
-  } else {
-    res.status(400);
-    throw new Error('Invalid trade type');
+    const [transaction] = await Transaction.create([{
+      user: req.user._id,
+      type,
+      symbol: symbol.toUpperCase(),
+      name: name || quote.name,
+      quantity,
+      price: currentPrice,
+      total: totalAmount
+    }], { session });
+    
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: `${type} successful for ${quantity} shares of ${symbol}`,
+      portfolio,
+      transaction
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-  
-  await portfolio.save();
-  
-  const transaction = await Transaction.create({
-    user: req.user._id,
-    type,
-    symbol: symbol.toUpperCase(),
-    name: name || quote.name,
-    quantity,
-    price: currentPrice,
-    total: totalAmount
-  });
-  
-  res.json({
-    success: true,
-    message: `${type} successful for ${quantity} shares of ${symbol}`,
-    portfolio,
-    transaction
-  });
 });
 
 module.exports = { getPortfolio, getPortfolioSummary, getHistory, tradeStock, getPortfolioChart };

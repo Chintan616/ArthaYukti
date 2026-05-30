@@ -53,4 +53,30 @@ const getHistory = asyncHandler(async (req, res) => {
   res.json({ success: true, candles });
 });
 
-module.exports = { searchStocks, getTrending, getGainersLosers, getIndices, getAllStocks, getStock, getHistory };
+// POST /api/stocks/admin/token
+const updateUpstoxToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ success: false, message: 'Token required' });
+  
+  stockService.setToken(token);
+  
+  const fs = require('fs');
+  const path = require('path');
+  const envPath = path.join(__dirname, '../../.env');
+  if (fs.existsSync(envPath)) {
+    let envContent = fs.readFileSync(envPath, 'utf8');
+    if (envContent.includes('UPSTOX_ACCESS_TOKEN=')) {
+      envContent = envContent.replace(/UPSTOX_ACCESS_TOKEN=.*/g, `UPSTOX_ACCESS_TOKEN="${token}"`);
+    } else {
+      envContent += `\nUPSTOX_ACCESS_TOKEN="${token}"\n`;
+    }
+    fs.writeFileSync(envPath, envContent);
+  }
+
+  const { reconnectUpstox } = require('../sockets');
+  if (reconnectUpstox) reconnectUpstox();
+  
+  res.json({ success: true, message: 'Upstox token updated successfully' });
+});
+
+module.exports = { searchStocks, getTrending, getGainersLosers, getIndices, getAllStocks, getStock, getHistory, updateUpstoxToken };

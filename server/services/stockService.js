@@ -2,7 +2,9 @@ const axios = require('axios');
 const cache = require('./cacheService');
 
 const UPSTOX_BASE = 'https://api.upstox.com/v2';
-const getToken    = () => process.env.UPSTOX_ACCESS_TOKEN;
+let customToken = null;
+const getToken    = () => customToken || process.env.UPSTOX_ACCESS_TOKEN;
+const setToken    = (t) => { customToken = t; };
 
 // Shared axios instance for Upstox REST calls
 const upstox = axios.create({ baseURL: UPSTOX_BASE });
@@ -223,7 +225,8 @@ const getCandles = async (symbol, resolution = 'D') => {
       .filter(c => c.open && c.close)
       .sort((a, b) => a.time - b.time);
 
-    const ttl = isIntraday ? 60 : resolution === 'D' ? 300 : 600;
+    // Intraday (1m, 30m) cache for 60s. Daily for 12 hours, Weekly/Monthly for 24 hours.
+    const ttl = isIntraday ? 60 : resolution === 'D' ? 43200 : 86400;
     await cache.set(cacheKey, candles, ttl);
     return candles;
   } catch (err) {
@@ -249,6 +252,21 @@ const searchStocks = (query) => {
   }
   return results;
 };
+
+// ─── Startup Hydration ────────────────────────────────────────────────────────
+// Load quotes from Redis into the live memory map so server restarts are fast
+const hydrateLiveQuotes = async () => {
+  const allSymbols = [...MARKET_SYMBOLS, ...MARKET_INDICES.map(i => i.symbol)];
+  for (const sym of allSymbols) {
+    const cached = await cache.get(`quote:${sym}`);
+    if (cached) liveQuotes.set(sym, cached);
+  }
+  console.log(`[stockService] Hydrated ${liveQuotes.size} live quotes from Redis`);
+};
+
+// Hydrate asynchronously
+hydrateLiveQuotes();
+
 
 /**
  * Company profile — hardcoded sector/exchange + live quote from cache.
@@ -331,7 +349,7 @@ const getIndices = async () => {
 module.exports = {
   getQuote, searchStocks, getCandles, getProfile,
   getTrending, getGainersLosers, getAllStocks, getIndices,
-  getBulkQuotes, updateLiveQuote,
+  getBulkQuotes, updateLiveQuote, getToken, setToken,
   MARKET_SYMBOLS, MARKET_INDICES, STOCK_NAMES,
   SYMBOL_TO_INSTRUMENT, INSTRUMENT_TO_SYMBOL,
 };
