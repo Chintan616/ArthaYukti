@@ -17,16 +17,16 @@ upstox.interceptors.request.use((cfg) => {
 // ─── Static data (unchanged — frontend reads these) ──────────────────────────
 
 const MARKET_SYMBOLS = [
-  'RELIANCE.BO', 'TCS.BO', 'HDFCBANK.BO', 'INFY.BO', 'HINDUNILVR.BO',
-  'ICICIBANK.BO', 'SBIN.BO', 'BHARTIARTL.BO', 'ITC.BO', 'KOTAKBANK.BO',
-  'LT.BO', 'BAJFINANCE.BO', 'HCLTECH.BO', 'MARUTI.BO', 'ASIANPAINT.BO',
-  'AXISBANK.BO', 'TITAN.BO', 'SUNPHARMA.BO', 'WIPRO.BO', 'ULTRACEMCO.BO',
-  'NESTLEIND.BO', 'ONGC.BO', 'NTPC.BO', 'TECHM.BO', 'TATASTEEL.BO',
-  'BAJAJFINSV.BO', 'POWERGRID.BO', 'M&M.BO', 'HDFCLIFE.BO', 'INDUSINDBK.BO',
-  'GRASIM.BO', 'DRREDDY.BO', 'CIPLA.BO', 'HINDALCO.BO', 'JSWSTEEL.BO',
-  'APOLLOHOSP.BO', 'ADANIENT.BO', 'ADANIPORTS.BO', 'AMBUJACEM.BO', 'COALINDIA.BO',
-  'TATACONSUM.BO', 'BRITANNIA.BO', 'DIVISLAB.BO', 'BAJAJ-AUTO.BO', 'HEROMOTOCO.BO',
-  'EICHERMOT.BO', 'UPL.BO', 'BPCL.BO', 'SIEMENS.BO', 'SBILIFE.BO',
+  'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'HINDUNILVR',
+  'ICICIBANK', 'SBIN', 'BHARTIARTL', 'ITC', 'KOTAKBANK',
+  'LT', 'BAJFINANCE', 'HCLTECH', 'MARUTI', 'ASIANPAINT',
+  'AXISBANK', 'TITAN', 'SUNPHARMA', 'WIPRO', 'ULTRACEMCO',
+  'NESTLEIND', 'ONGC', 'NTPC', 'TECHM', 'TATASTEEL',
+  'BAJAJFINSV', 'POWERGRID', 'M&M', 'HDFCLIFE', 'INDUSINDBK',
+  'GRASIM', 'DRREDDY', 'CIPLA', 'HINDALCO', 'JSWSTEEL',
+  'APOLLOHOSP', 'ADANIENT', 'ADANIPORTS', 'AMBUJACEM', 'COALINDIA',
+  'TATACONSUM', 'BRITANNIA', 'DIVISLAB', 'BAJAJ-AUTO', 'HEROMOTOCO',
+  'EICHERMOT', 'UPL', 'BPCL', 'SIEMENS', 'SBILIFE',
 ];
 
 const MARKET_INDICES = [
@@ -53,21 +53,7 @@ allInstruments.forEach(inst => {
   STOCK_NAMES[inst.symbol] = inst.name;
 });
 
-// Second pass: support legacy `.BO` symbols so existing MongoDB watchlists and dashboard don't break
-MARKET_SYMBOLS.forEach(legacySymbol => {
-  if (legacySymbol.endsWith('.BO')) {
-    const cleanSymbol = legacySymbol.replace('.BO', '');
-    if (SYMBOL_TO_INSTRUMENT[cleanSymbol]) {
-      const instrKey = SYMBOL_TO_INSTRUMENT[cleanSymbol];
-      SYMBOL_TO_INSTRUMENT[legacySymbol] = instrKey;
-      STOCK_NAMES[legacySymbol] = STOCK_NAMES[cleanSymbol];
-      // Point the REST response back to the legacy symbol so frontend matches it
-      INSTRUMENT_TO_SYMBOL[instrKey.replace('|', ':')] = legacySymbol;
-    }
-  }
-});
-
-// Also ensure legacy indices map back correctly
+// Ensure indices map back correctly
 MARKET_INDICES.forEach(idx => {
   const instrKey = SYMBOL_TO_INSTRUMENT[idx.symbol];
   if (instrKey) {

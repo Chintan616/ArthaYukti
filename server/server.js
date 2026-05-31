@@ -12,7 +12,8 @@ const { initSocket }   = require('./sockets');
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
 
 const authRoutes      = require('./routes/authRoutes');
-const stockRoutes     = require('./routes/stockRoutes');
+const stockRoutes = require('./routes/stockRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 const watchlistRoutes = require('./routes/watchlistRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const alertRoutes     = require('./routes/alertRoutes');
@@ -53,7 +54,8 @@ app.use('/api', apiLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes);
-app.use('/api/stocks',    stockRoutes);
+app.use('/api/stocks', stockRoutes);
+app.use('/api/chats', chatRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 
 app.use('/api/portfolio', portfolioRoutes);

@@ -97,8 +97,31 @@ const DashboardLayout = () => {
           ))}
         </div>
 
+        {/* AI Co-Pilot — visually distinct, pushed right */}
+        <NavLink
+          to="/dashboard/ai-analyst"
+          className="ml-auto h-9 px-3 flex items-center gap-1.5 rounded-md text-sm font-medium flex-shrink-0 transition-all duration-150"
+          style={({ isActive }) => ({
+            backgroundColor: isActive ? 'oklch(0.55 0.18 280 / 0.12)' : 'transparent',
+            border: isActive ? '1px solid oklch(0.55 0.18 280 / 0.3)' : '1px solid transparent',
+          })}
+        >
+          <span className="text-base leading-none">✨</span>
+          <span
+            className="hidden md:block"
+            style={{
+              backgroundImage: 'linear-gradient(to right, oklch(0.65 0.2 260), oklch(0.68 0.22 300), oklch(0.72 0.2 340))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            AI Co-Pilot
+          </span>
+        </NavLink>
+
         {/* Right — balance + user menu */}
-        <div className="ml-auto flex items-center gap-4">
+        <div className="flex items-center gap-4">
           {/* Paper balance chip */}
           <div
             className="hidden sm:flex items-center gap-2 h-8 px-3 rounded-md border"

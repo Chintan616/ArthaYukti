@@ -15,6 +15,11 @@ export default defineConfig({
         target: 'http://localhost:5001',
         ws: true,
       },
+      '/ai-api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ai-api/, '/api'),
+      },
     },
   },
 });

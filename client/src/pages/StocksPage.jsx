@@ -7,6 +7,7 @@ import { tradeStock, fetchPortfolio } from '../store/slices/portfolioSlice';
 import { createAlert } from '../store/slices/alertSlice';
 import StockChart from '../components/stock/StockChart';
 import PriceChange from '../components/stock/PriceChange';
+import AiInsightCard from '../components/stock/AiInsightCard';
 import Skeleton from '../components/ui/Skeleton';
 import { Star, Bell, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -375,6 +376,8 @@ export default function StocksPage() {
                       </div>
                     ))}
                   </div>
+                  
+                  <AiInsightCard symbol={activeSymbol} />
 
                   {profile?.marketCapitalization && (
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
