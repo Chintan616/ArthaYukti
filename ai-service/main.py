@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agent import create_agent_executor, parse_chat_history
+from report import router as report_router
+from predict import router as predict_router
 
 # ─── Company name lookup for NewsData.io search ───────────────────────────────
 
@@ -100,6 +102,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="ArthaYukti AI Co-Pilot", version="1.0.0", lifespan=lifespan)
+app.include_router(report_router)
+app.include_router(predict_router)
 
 app.add_middleware(
     CORSMiddleware,

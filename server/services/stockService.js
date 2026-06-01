@@ -61,6 +61,12 @@ MARKET_INDICES.forEach(idx => {
   }
 });
 
+const getInstrKey = (sym) => {
+  if (!sym) return null;
+  const clean = sym.replace(/\.(BO|NS)$/i, '');
+  return SYMBOL_TO_INSTRUMENT[sym] || SYMBOL_TO_INSTRUMENT[clean];
+};
+
 // ─── Live quote store — updated in real time by the WebSocket feed ────────────
 const liveQuotes = new Map(); // yahooSymbol → quote object
 
@@ -76,10 +82,11 @@ const buildQuote = (symbol, d) => {
   const price         = d.last_price  ?? 0;
   const netChange     = d.net_change  ?? (price - prevClose);
   const changePercent = prevClose > 0 ? (netChange / prevClose) * 100 : 0;
+  const cleanSym      = symbol.replace(/\.(BO|NS)$/i, '');
 
   return {
     symbol,
-    name:          STOCK_NAMES[symbol] || MARKET_INDICES.find(i => i.symbol === symbol)?.name || symbol,
+    name:          STOCK_NAMES[symbol] || STOCK_NAMES[cleanSym] || MARKET_INDICES.find(i => i.symbol === symbol)?.name || symbol,
     price,
     change:        netChange,
     changePercent,
@@ -99,7 +106,7 @@ const buildQuote = (symbol, d) => {
 const getQuote = async (symbol) => {
   if (liveQuotes.has(symbol)) return liveQuotes.get(symbol);
 
-  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  const instrKey = getInstrKey(symbol);
   if (!instrKey) return null;
 
   const cacheKey = `quote:${symbol}`;
@@ -127,13 +134,13 @@ const getQuote = async (symbol) => {
  * If the WebSocket feed is warm, returns from the live map instantly.
  */
 const getBulkQuotes = async (symbols) => {
-  const mapped = symbols.filter(s => SYMBOL_TO_INSTRUMENT[s]);
+  const mapped = symbols.filter(s => getInstrKey(s));
   if (!mapped.length) return [];
 
   if (mapped.every(s => liveQuotes.has(s))) return mapped.map(s => liveQuotes.get(s));
 
   const keyParam = mapped
-    .map(s => encodeURIComponent(SYMBOL_TO_INSTRUMENT[s]))
+    .map(s => encodeURIComponent(getInstrKey(s)))
     .join(',');
 
   try {
@@ -150,7 +157,7 @@ const getBulkQuotes = async (symbols) => {
     }
 
     for (const sym of mapped) {
-      const instrKey = SYMBOL_TO_INSTRUMENT[sym];
+      const instrKey = getInstrKey(sym);
       const d = dataByToken[instrKey];
       if (!d) continue;
       const quote = buildQuote(sym, d);
@@ -170,7 +177,7 @@ const getBulkQuotes = async (symbols) => {
  * Output: [{ time (unix seconds), open, high, low, close, volume }]
  */
 const getCandles = async (symbol, resolution = 'D') => {
-  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  const instrKey = getInstrKey(symbol);
   if (!instrKey) return [];
 
   const cacheKey = `candles:${symbol}:${resolution}`;
@@ -263,11 +270,12 @@ const getProfile = async (symbol) => {
   const hit = await cache.get(cacheKey);
   if (hit) return hit;
 
-  const instrKey = SYMBOL_TO_INSTRUMENT[symbol];
+  const instrKey = getInstrKey(symbol);
   const exchange = instrKey?.startsWith('BSE') ? 'BSE' : 'NSE';
+  const cleanSym = symbol.replace(/\.(BO|NS)$/i, '');
 
   const profile = {
-    name:                 STOCK_NAMES[symbol] || symbol,
+    name:                 STOCK_NAMES[symbol] || STOCK_NAMES[cleanSym] || symbol,
     ticker:               symbol,
     finnhubIndustry:      'N/A', // Upstox basic plan doesn't expose sectors
     marketCapitalization: null, // Upstox basic plan doesn't expose market cap

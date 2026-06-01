@@ -7,7 +7,8 @@ import { tradeStock, fetchPortfolio } from '../store/slices/portfolioSlice';
 import { createAlert } from '../store/slices/alertSlice';
 import StockChart from '../components/stock/StockChart';
 import PriceChange from '../components/stock/PriceChange';
-import AiInsightCard from '../components/stock/AiInsightCard';
+import AiInsightCard  from '../components/stock/AiInsightCard';
+import ReportModal    from '../components/stock/ReportModal';
 import Skeleton from '../components/ui/Skeleton';
 import { Star, Bell, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -34,6 +35,7 @@ export default function StocksPage() {
   const [isTrading, setIsTrading] = useState(false);
   const [tradeModalOpen, setTradeModalOpen] = useState(false);
   const [tradeType, setTradeType] = useState('BUY');
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Fetch all stocks on mount if not available
   useEffect(() => {
@@ -379,6 +381,21 @@ export default function StocksPage() {
                   
                   <AiInsightCard symbol={activeSymbol} />
 
+                  {/* Generate Report button */}
+                  <button
+                    onClick={() => setReportOpen(true)}
+                    className="w-full h-10 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-all duration-150"
+                    style={{
+                      background:      'linear-gradient(135deg, oklch(0.55 0.18 280 / 0.08), oklch(0.65 0.2 320 / 0.08))',
+                      borderColor:     'oklch(0.55 0.18 280 / 0.3)',
+                      color:           'oklch(0.68 0.18 290)',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'linear-gradient(135deg, oklch(0.55 0.18 280 / 0.14), oklch(0.65 0.2 320 / 0.14))'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, oklch(0.55 0.18 280 / 0.08), oklch(0.65 0.2 320 / 0.08))'}
+                  >
+                    ✨ Generate Full AI Report
+                  </button>
+
                   {profile?.marketCapitalization && (
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                       {[
@@ -502,6 +519,15 @@ export default function StocksPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* AI Report Modal */}
+      {reportOpen && (
+        <ReportModal
+          symbol={activeSymbol}
+          companyName={profile?.name || liveQuote?.name || activeSymbol}
+          onClose={() => setReportOpen(false)}
+        />
       )}
 
       {/* Trade Confirmation Modal */}
