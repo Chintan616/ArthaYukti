@@ -137,7 +137,8 @@ export default function AiInsightCard({ symbol }) {
 
       try {
         const token = localStorage.getItem('ay_token');
-        const res   = await fetch(`/ai-api/insight-card/${symbol}`, {
+        const aiApiUrl = import.meta.env.VITE_AI_API_URL || '/ai-api';
+        const res   = await fetch(`${aiApiUrl}/insight-card/${symbol}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

@@ -71,7 +71,8 @@ export default function ReportModal({ symbol, companyName, onClose }) {
     
     // Fetch ML Prediction
     const token = localStorage.getItem('ay_token');
-    fetch(`/ai-api/predict/${encodeURIComponent(symbol)}`, {
+    const aiApiUrl = import.meta.env.VITE_AI_API_URL || '/ai-api';
+    fetch(`${aiApiUrl}/predict/${encodeURIComponent(symbol)}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -118,7 +119,8 @@ export default function ReportModal({ symbol, companyName, onClose }) {
     abortRef.current = controller;
 
     const token = localStorage.getItem('ay_token');
-    const url   = `/ai-api/report/generate?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(companyName)}`;
+    const aiApiUrl = import.meta.env.VITE_AI_API_URL || '/ai-api';
+    const url   = `${aiApiUrl}/report/generate?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(companyName)}`;
 
     (async () => {
       try {

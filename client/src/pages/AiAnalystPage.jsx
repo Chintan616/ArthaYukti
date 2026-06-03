@@ -126,7 +126,8 @@ export default function AiAnalystPage() {
 
   const fetchThreads = async () => {
     try {
-      const res = await fetch('/api/chats', {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${apiUrl}/chats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -143,7 +144,8 @@ export default function AiAnalystPage() {
     setActiveId(id);
     setSidebarOpen(false);
     try {
-      const res = await fetch(`/api/chats/${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${apiUrl}/chats/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -164,7 +166,8 @@ export default function AiAnalystPage() {
   const deleteThread = async (id, e) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`/api/chats/${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${apiUrl}/chats/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -203,7 +206,8 @@ export default function AiAnalystPage() {
       if (!currentChatId) {
         // Create new thread
         const title = trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed;
-        const createRes = await fetch('/api/chats', {
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        const createRes = await fetch(`${apiUrl}/chats`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ title, initialMessage: userMsg })
@@ -216,7 +220,8 @@ export default function AiAnalystPage() {
         }
       } else {
         // Append to existing thread in Node.js
-        await fetch(`/api/chats/${currentChatId}/messages`, {
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        await fetch(`${apiUrl}/chats/${currentChatId}/messages`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ messages: userMsg })
@@ -299,7 +304,8 @@ export default function AiAnalystPage() {
 
       // 3. Save AI response to Node.js DB
       if (currentChatId) {
-        await fetch(`/api/chats/${currentChatId}/messages`, {
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        await fetch(`${apiUrl}/chats/${currentChatId}/messages`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ messages: aiMsg })
