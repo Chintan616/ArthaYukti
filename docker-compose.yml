@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Node.js API Backend
+  api:
+    build: ./server
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./server/.env
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Python FastAPI AI Service
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ai-service/.env
+    environment:
+      # If using a local redis container, override the Upstash URL
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Local Redis Cache (Optional: comment out if you prefer your Upstash URL)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
