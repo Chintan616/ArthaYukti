@@ -95,8 +95,15 @@ const getPortfolioChart = asyncHandler(async (req, res) => {
 
   const timeMap = {};
   
+  // Get start of user registration day in unix timestamp
+  const registrationDate = new Date(req.user.createdAt);
+  registrationDate.setHours(0, 0, 0, 0);
+  const registrationTimestamp = Math.floor(registrationDate.getTime() / 1000);
+  
   allCandles.forEach(item => {
     item.candles.forEach(c => {
+      if (c.time < registrationTimestamp) return;
+
       const d = new Date(c.time * 1000);
       const dateKey = d.toISOString().split('T')[0]; // Group by YYYY-MM-DD
       

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { GoogleLogin } from '@react-oauth/google';
-import { Eye, EyeOff, TrendingUp, LogIn, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, TrendingUp, LogIn, AlertCircle, ArrowLeft } from 'lucide-react';
 import { loginUser, googleAuthUser, clearError } from '../store/slices/authSlice';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const dispatch = useDispatch();
@@ -36,16 +37,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--background)', perspective: '1200px' }}>
       <div className="absolute inset-0 grid-bg radial-fade pointer-events-none" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl pointer-events-none" style={{ backgroundColor: 'oklch(0.78 0.16 152 / 0.08)' }} />
 
-      <div className="relative w-full max-w-md">
+      <Link 
+        to="/" 
+        className="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-2 text-sm font-medium transition-colors z-10" 
+        style={{ color: 'var(--muted-foreground)' }} 
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--foreground)' }} 
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--muted-foreground)' }}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Home
+      </Link>
+
+      <motion.div 
+        key="login-card"
+        initial={{ rotateY: -90, opacity: 0 }}
+        animate={{ rotateY: 0, opacity: 1 }}
+        exit={{ rotateY: 90, opacity: 0 }}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
+        className="relative w-full max-w-md"
+      >
         <div className="flex items-center justify-center gap-2.5 mb-10">
           <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--primary)' }}>
             <TrendingUp className="h-5 w-5 stroke-[1.5]" style={{ color: 'var(--primary-foreground)' }} />
           </div>
-          <span className="font-display text-2xl" style={{ color: 'var(--foreground)' }}>ArthaYukti</span>
+          <span className="font-display text-2xl" style={{ color: 'var(--foreground)' }}>Artha<span className="font-sans font-medium text-primary">युक्ति</span></span>
         </div>
 
         <div className="rounded-lg border p-8" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -126,7 +145,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs" style={{ color: 'var(--muted-foreground)' }}>
           By signing in you agree to our Terms of Service and Privacy Policy.
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

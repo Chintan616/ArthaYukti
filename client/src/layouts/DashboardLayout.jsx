@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { TrendingUp, BarChart2, Eye, Briefcase, Activity, Wallet, LogOut, ChevronDown, Settings } from 'lucide-react';
+import { TrendingUp, BarChart2, Eye, Briefcase, Activity, Wallet, LogOut, ChevronDown, Settings, Sparkles } from 'lucide-react';
 import { logout, updateCredentialsThunk } from '../store/slices/authSlice';
 import toast from 'react-hot-toast';
 import useSocket from '../hooks/useSocket';
@@ -75,7 +75,7 @@ const DashboardLayout = () => {
             <TrendingUp className="h-4 w-4 stroke-[1.5]" style={{ color: 'var(--primary-foreground)' }} />
           </div>
           <span className="font-display text-lg hidden sm:block" style={{ color: 'var(--foreground)' }}>
-            ArthaYukti
+            Artha<span className="font-sans font-medium text-primary">युक्ति</span>
           </span>
         </NavLink>
 
@@ -100,24 +100,15 @@ const DashboardLayout = () => {
         {/* AI Co-Pilot — visually distinct, pushed right */}
         <NavLink
           to="/dashboard/ai-analyst"
-          className="ml-auto h-9 px-3 flex items-center gap-1.5 rounded-md text-sm font-medium flex-shrink-0 transition-all duration-150"
+          className="ml-auto h-8 px-4 flex items-center gap-1.5 rounded-full text-xs font-medium flex-shrink-0 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-sm hover:shadow"
           style={({ isActive }) => ({
-            backgroundColor: isActive ? 'oklch(0.55 0.18 280 / 0.12)' : 'transparent',
-            border: isActive ? '1px solid oklch(0.55 0.18 280 / 0.3)' : '1px solid transparent',
+            background: isActive ? 'linear-gradient(135deg, oklch(0.55 0.18 280), oklch(0.65 0.2 320))' : 'transparent',
+            color: isActive ? 'white' : 'oklch(0.72 0.2 300)',
+            border: isActive ? '1px solid transparent' : '1px solid oklch(0.72 0.2 300 / 0.4)'
           })}
         >
-          <span className="text-base leading-none">✨</span>
-          <span
-            className="hidden md:block"
-            style={{
-              backgroundImage: 'linear-gradient(to right, oklch(0.65 0.2 260), oklch(0.68 0.22 300), oklch(0.72 0.2 340))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
-            AI Co-Pilot
-          </span>
+          <Sparkles className="h-3.5 w-3.5" />
+          <span className="hidden md:block tracking-wide">AI Co-Pilot</span>
         </NavLink>
 
         {/* Right — balance + user menu */}

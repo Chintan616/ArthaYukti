@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Wallet, Plus, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
+import { Wallet, Plus, ArrowUpRight, ArrowDownRight, RefreshCw, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   fetchWallet,
@@ -41,6 +41,34 @@ export default function WalletPage() {
 
   const fmt = (n) =>
     n?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) ?? '0.00';
+
+  const handleDownloadTransactions = () => {
+    if (!transactions || transactions.length === 0) {
+      toast.error('No transactions to download');
+      return;
+    }
+    const headers = ['Date', 'Type', 'Symbol', 'Quantity', 'Price', 'Total'];
+    const csvContent = [
+      headers.join(','),
+      ...transactions.map(tx => [
+        new Date(tx.createdAt).toLocaleDateString('en-IN'),
+        tx.type,
+        tx.symbol,
+        tx.quantity,
+        tx.price?.toFixed(2),
+        tx.total?.toFixed(2)
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'transactions_summary.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleAddMoney = async () => {
     const parsedAmount = parseFloat(amount);
@@ -235,10 +263,20 @@ export default function WalletPage() {
 
       {/* Trade transaction history */}
       <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
           <h2 className="font-sans font-medium text-sm" style={{ color: 'var(--foreground)' }}>
             Trade History
           </h2>
+          <button
+            onClick={handleDownloadTransactions}
+            className="h-7 px-2.5 flex items-center gap-1.5 rounded-md font-medium text-xs transition-colors duration-150"
+            style={{ backgroundColor: 'var(--surface-elevated)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--muted)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-elevated)')}
+          >
+            <Download className="h-3 w-3" />
+            Export CSV
+          </button>
         </div>
 
         {loading ? (

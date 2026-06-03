@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { GoogleLogin } from '@react-oauth/google';
-import { Eye, EyeOff, TrendingUp, UserPlus, AlertCircle, Check } from 'lucide-react';
+import { Eye, EyeOff, TrendingUp, UserPlus, AlertCircle, Check, ArrowLeft } from 'lucide-react';
 import { signupUser, googleAuthUser, clearError } from '../store/slices/authSlice';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
 const strength = (pw) => {
   if (!pw) return -1;
@@ -62,16 +63,34 @@ export default function SignupPage() {
   const blurFn  = (e) => { e.target.style.borderColor = 'var(--input)'; e.target.style.boxShadow = 'none'; };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ backgroundColor: 'var(--background)', perspective: '1200px' }}>
       <div className="absolute inset-0 grid-bg radial-fade pointer-events-none" />
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full blur-3xl pointer-events-none" style={{ backgroundColor: 'oklch(0.78 0.16 152 / 0.08)' }} />
 
-      <div className="relative w-full max-w-md">
+      <Link 
+        to="/" 
+        className="absolute top-6 left-6 md:top-10 md:left-10 flex items-center gap-2 text-sm font-medium transition-colors z-10" 
+        style={{ color: 'var(--muted-foreground)' }} 
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--foreground)' }} 
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--muted-foreground)' }}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Home
+      </Link>
+
+      <motion.div 
+        key="signup-card"
+        initial={{ rotateY: 90, opacity: 0 }}
+        animate={{ rotateY: 0, opacity: 1 }}
+        exit={{ rotateY: -90, opacity: 0 }}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
+        className="relative w-full max-w-md"
+      >
         <div className="flex items-center justify-center gap-2.5 mb-10">
           <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--primary)' }}>
             <TrendingUp className="h-5 w-5 stroke-[1.5]" style={{ color: 'var(--primary-foreground)' }} />
           </div>
-          <span className="font-display text-2xl" style={{ color: 'var(--foreground)' }}>ArthaYukti</span>
+          <span className="font-display text-2xl" style={{ color: 'var(--foreground)' }}>Artha<span className="font-sans font-medium text-primary">युक्ति</span></span>
         </div>
 
         <div className="rounded-lg border p-8" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -152,20 +171,13 @@ export default function SignupPage() {
             />
           </div>
 
-          <div className="mt-6 pt-6 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
-            {['Real-time market data & live charts', 'Paper trading with virtual ₹1,00,000', 'AI-powered portfolio analysis (Phase 3)'].map((item) => (
-              <div key={item} className="flex items-center gap-2.5">
-                <Check className="h-3.5 w-3.5 flex-shrink-0 stroke-[2]" style={{ color: 'var(--primary)' }} />
-                <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{item}</span>
-              </div>
-            ))}
-          </div>
+
 
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
             Already have an account? <Link to="/login" style={{ color: 'var(--primary)' }}>Sign in</Link>
           </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -229,7 +229,8 @@ export default function AiAnalystPage() {
         content: m.content,
       }));
 
-      const aiRes = await fetch('/ai-api/chat', {
+      const aiApiUrl = import.meta.env.VITE_AI_API_URL || '/ai-api';
+      const aiRes = await fetch(`${aiApiUrl}/chat`, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
@@ -411,7 +412,7 @@ export default function AiAnalystPage() {
             </div>
 
             {/* Suggestion cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl px-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-4xl px-2">
               {SUGGESTIONS.map(({ label, prompt }) => (
                 <button
                   key={label}

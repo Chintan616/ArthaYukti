@@ -57,8 +57,13 @@ const portfolioSlice = createSlice({
       .addCase(fetchPortfolio.pending,   (s) => { s.loading = true; })
       .addCase(fetchPortfolio.fulfilled, (s, { payload }) => {
         s.virtualBalance = payload.virtualBalance;
-        s.holdings       = payload.holdings;
-        s.loading        = false;
+        // Root fix: Only overwrite holdings if we don't already have enriched ones
+        // This prevents the race condition where App.jsx overwrites PortfolioPage's rich data.
+        const hasEnrichedHoldings = s.holdings.length > 0 && s.holdings[0].currentPrice !== undefined;
+        if (!hasEnrichedHoldings) {
+          s.holdings = payload.holdings;
+        }
+        s.loading = false;
       })
       .addCase(fetchPortfolio.rejected,  (s, { payload }) => { s.loading = false; s.error = payload; })
 

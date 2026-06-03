@@ -107,7 +107,7 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 stroke-[1.5]" style={{ color: 'var(--primary-foreground)' }} />
           </div>
           <span className="font-display text-lg" style={{ color: 'var(--foreground)' }}>
-            ArthaYukti
+            Artha<span className="font-sans font-medium text-primary">युक्ति</span>
           </span>
         </div>
 

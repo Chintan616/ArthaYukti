@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase } from 'lucide-react';
+import { Briefcase, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { fetchPortfolioSummary, fetchPortfolioChart } from '../store/slices/portfolioSlice';
 import PriceChange from '../components/stock/PriceChange';
@@ -58,13 +59,54 @@ export default function PortfolioPage() {
 
   const fmt = (n) => n?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) ?? '0.00';
 
+  const handleDownloadPortfolio = () => {
+    if (!holdings || holdings.length === 0) {
+      toast.error('No holdings to download');
+      return;
+    }
+    const headers = ['Symbol', 'Name', 'Quantity', 'Avg Price', 'Current Price', 'P&L', 'P&L %'];
+    const csvContent = [
+      headers.join(','),
+      ...holdings.map(h => [
+        h.symbol,
+        `"${h.name}"`,
+        h.quantity,
+        h.avgPrice?.toFixed(2),
+        h.currentPrice?.toFixed(2),
+        h.pl?.toFixed(2),
+        h.plPercent?.toFixed(2)
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'portfolio_summary.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8">
 
       {/* Header */}
-      <div>
-        <p className="text-xs uppercase tracking-[0.18em] mb-1" style={{ color: 'var(--muted-foreground)' }}>My Investments</p>
-        <h1 className="font-display text-3xl md:text-4xl" style={{ color: 'var(--foreground)' }}>Portfolio</h1>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] mb-1" style={{ color: 'var(--muted-foreground)' }}>My Investments</p>
+          <h1 className="font-display text-3xl md:text-4xl" style={{ color: 'var(--foreground)' }}>Portfolio</h1>
+        </div>
+        <button
+          onClick={handleDownloadPortfolio}
+          className="h-9 px-3 flex items-center gap-2 rounded-md font-medium text-xs transition-colors duration-150"
+          style={{ backgroundColor: 'var(--surface-elevated)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--muted)')}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-elevated)')}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </button>
       </div>
 
       {/* Summary cards */}

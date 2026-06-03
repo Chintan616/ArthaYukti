@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
+import { AnimatePresence } from 'framer-motion';
 
 import store from './store';
 import { checkAuth } from './store/slices/authSlice';
@@ -17,6 +18,7 @@ import WatchlistPage   from './pages/WatchlistPage';
 import PortfolioPage   from './pages/PortfolioPage';
 import WalletPage      from './pages/WalletPage';
 import AiAnalystPage   from './pages/AiAnalystPage';
+import LandingPage     from './pages/LandingPage';
 
 // ─── Route Guards ────────────────────────────────────────────────────────────
 
@@ -61,30 +63,35 @@ const AppInit = () => {
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
-const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<Navigate to="/login" replace />} />
+const AppRoutes = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PublicOnly><LandingPage /></PublicOnly>} />
 
-    <Route path="/login"  element={<PublicOnly><LoginPage /></PublicOnly>} />
-    <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
+        <Route path="/login"  element={<PublicOnly><LoginPage /></PublicOnly>} />
+        <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
 
-    <Route
-      path="/dashboard"
-      element={<RequireAuth><DashboardLayout /></RequireAuth>}
-    >
-      <Route index element={<Navigate to="market" replace />} />
-      <Route path="market"          element={<MarketPage />} />
-      <Route path="stocks"          element={<StocksPage />} />
-      <Route path="stocks/:symbol"  element={<StocksPage />} />
-      <Route path="watchlist"       element={<WatchlistPage />} />
-      <Route path="portfolio"       element={<PortfolioPage />} />
-      <Route path="wallet"          element={<WalletPage />} />
-      <Route path="ai-analyst"      element={<AiAnalystPage />} />
-    </Route>
+        <Route
+          path="/dashboard"
+          element={<RequireAuth><DashboardLayout /></RequireAuth>}
+        >
+          <Route index element={<Navigate to="market" replace />} />
+          <Route path="market"          element={<MarketPage />} />
+          <Route path="stocks"          element={<StocksPage />} />
+          <Route path="stocks/:symbol"  element={<StocksPage />} />
+          <Route path="watchlist"       element={<WatchlistPage />} />
+          <Route path="portfolio"       element={<PortfolioPage />} />
+          <Route path="wallet"          element={<WalletPage />} />
+          <Route path="ai-analyst"      element={<AiAnalystPage />} />
+        </Route>
 
-    <Route path="*" element={<Navigate to="/login" replace />} />
-  </Routes>
-);
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
 
 // ─── Root ────────────────────────────────────────────────────────────────────
 

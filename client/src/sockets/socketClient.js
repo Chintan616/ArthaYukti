@@ -5,7 +5,8 @@ let socket = null;
 export const connectSocket = () => {
   if (socket?.connected) return socket;
 
-  socket = io('/', {
+  const socketUrl = import.meta.env.VITE_API_URL || '/';
+  socket = io(socketUrl, {
     withCredentials: true,
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 5,
