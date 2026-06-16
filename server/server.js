@@ -25,6 +25,7 @@ connectDB();
 
 
 const app    = express();
+app.set('trust proxy', 1); // Trust the first proxy (Render) to fix rate limit X-Forwarded-For error
 const server = http.createServer(app); // wrap in http.Server for Socket.IO
 
 // Attach Socket.IO to the HTTP server
