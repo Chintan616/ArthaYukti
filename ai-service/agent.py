@@ -74,7 +74,7 @@ def make_tools(jwt_token: str) -> list:
         Example symbols: 'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'SBIN'.
         """
         try:
-            r = http.get(f"{NODE_API}/stocks/{symbol}", headers=auth_headers, timeout=10)
+            r = http.get(f"{NODE_API}/stocks/{symbol}", headers=auth_headers, timeout=60)
             data = r.json()
             
             if data.get("success") and data.get("quote"):
@@ -101,7 +101,7 @@ def make_tools(jwt_token: str) -> list:
                 f"{NODE_API}/stocks/{symbol}/history",
                 params={"resolution": resolution},
                 headers=auth_headers,
-                timeout=15,
+                timeout=60,
             )
             data = r.json()
             
@@ -131,13 +131,13 @@ def make_tools(jwt_token: str) -> list:
             return f"Error fetching historical data for {symbol}: {e}"
 
     @tool
-    def get_portfolio_summary() -> str:
+    def get_portfolio_summary(dummy: str = "") -> str:
         """
         Retrieve the user's complete paper-trading portfolio.
         Includes all holdings, individual/overall P&L, and virtual cash balance.
         """
         try:
-            r = http.get(f"{NODE_API}/portfolio/summary", headers=auth_headers, timeout=10)
+            r = http.get(f"{NODE_API}/portfolio/summary", headers=auth_headers, timeout=60)
             data = r.json()
             
             if data.get("success"):
@@ -169,10 +169,10 @@ def make_tools(jwt_token: str) -> list:
             return f"Error fetching portfolio: {e}"
 
     @tool
-    def get_watchlist() -> str:
+    def get_watchlist(dummy: str = "") -> str:
         """Retrieve all the stocks the user is currently tracking in their watchlist."""
         try:
-            r = http.get(f"{NODE_API}/watchlist", headers=auth_headers, timeout=10)
+            r = http.get(f"{NODE_API}/watchlist", headers=auth_headers, timeout=60)
             data = r.json()
             if data.get("success"):
                 wl = data.get("watchlist", [])
@@ -193,10 +193,10 @@ def make_tools(jwt_token: str) -> list:
             return f"Error fetching watchlist: {e}"
 
     @tool
-    def get_alerts() -> str:
+    def get_alerts(dummy: str = "") -> str:
         """Retrieve all active price alerts set by the user."""
         try:
-            r = http.get(f"{NODE_API}/alerts", headers=auth_headers, timeout=10)
+            r = http.get(f"{NODE_API}/alerts", headers=auth_headers, timeout=60)
             data = r.json()
             if data.get("success"):
                 alerts = data.get("alerts", [])

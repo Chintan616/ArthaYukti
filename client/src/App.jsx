@@ -4,8 +4,11 @@ import { Provider, useDispatch, useSelector } from 'react-redux';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 
 import store from './store';
+import axiosInstance from './api/axios';
+import RenderLoadingScreen from './components/RenderLoadingScreen';
 import { checkAuth } from './store/slices/authSlice';
 import { fetchPortfolio } from './store/slices/portfolioSlice';
 
@@ -93,14 +96,61 @@ const AppRoutes = () => {
   );
 };
 
+// ─── Server Wakeup Gate ──────────────────────────────────────────────────────
+const ServerWakeupGate = ({ children }) => {
+  const [serverAwake, setServerAwake] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    // Only show loader if the server doesn't respond within 500ms
+    const loaderTimeout = setTimeout(() => {
+      if (isMounted) setShowLoader(true);
+    }, 500);
+
+    const pingServer = async () => {
+      try {
+        const res = await axiosInstance.get('/health');
+        if (res.data?.success) {
+          clearTimeout(loaderTimeout);
+          if (isMounted) setServerAwake(true);
+        } else {
+          if (isMounted) setTimeout(pingServer, 2000);
+        }
+      } catch (err) {
+        if (isMounted) setTimeout(pingServer, 2000);
+      }
+    };
+
+    pingServer();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(loaderTimeout);
+    };
+  }, []);
+
+  if (serverAwake) {
+    return children;
+  }
+
+  if (showLoader) {
+    return <RenderLoadingScreen />;
+  }
+
+  return null;
+};
+
 // ─── Root ────────────────────────────────────────────────────────────────────
 
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
     <Provider store={store}>
-      <BrowserRouter>
-        <AppInit />
+      <ServerWakeupGate>
+        <BrowserRouter>
+          <AppInit />
         <AppRoutes />
         <Toaster
           position="top-right"
@@ -117,7 +167,8 @@ export default function App() {
             error:   { iconTheme: { primary: 'oklch(0.66 0.22 22)',  secondary: 'oklch(0.16 0.012 250)' } },
           }}
         />
-      </BrowserRouter>
+        </BrowserRouter>
+      </ServerWakeupGate>
     </Provider>
     </GoogleOAuthProvider>
   );
